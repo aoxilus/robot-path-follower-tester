@@ -1,0 +1,120 @@
+<!doctype html>
+<!-- 🥑 Robot Path Follower Tester — fast 4-wheel path algorithm sandbox -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Robot Path Follower Tester</title>
+    <link rel="stylesheet" href="./style.css">
+  </head>
+  <body>
+    <div id="app-shell">
+      <!-- IZQUIERDA: settings -->
+      <aside id="panel-left" class="panel">
+        <header class="panel-header">
+          <div class="lang-row">
+            <button type="button" class="lang-btn active" data-lang="en">EN</button>
+            <button type="button" class="lang-btn" data-lang="es">ES</button>
+          </div>
+          <h1 data-i18n="title">Robot Path Follower Tester</h1>
+          <p class="future-note" data-i18n="futureNote">Future: program your own algorithms in Python or JavaScript</p>
+        </header>
+
+        <section class="panel-section">
+          <h2 data-i18n="sectionSensors">Sensors</h2>
+          <p class="field-label" data-i18n="sensorHint">Enable sensors — algorithms use what is active</p>
+          <div class="sensor-grid" id="sensorGroup">
+            <label class="sensor-check">
+              <input type="checkbox" id="sensorLidar" checked>
+              <span data-i18n="sensorLidar">LIDAR (360° scan)</span>
+            </label>
+            <label class="sensor-check">
+              <input type="checkbox" id="sensorUltrasonic" checked>
+              <span data-i18n="sensorUltrasonic">Ultrasonic (front)</span>
+            </label>
+            <label class="sensor-check">
+              <input type="checkbox" id="sensorIr" checked>
+              <span data-i18n="sensorIr">3× IR front (short range)</span>
+            </label>
+          </div>
+          <p id="sensorStatus" class="sensor-status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel-section">
+          <h2 data-i18n="sectionNav">Navigation</h2>
+          <p class="field-label" data-i18n="algorithmLabel">Path Algorithm:</p>
+          <div class="btn-group btn-group-stack" id="algoGroup" role="group">
+            <button type="button" class="toggle-btn active" data-algo="pure_pursuit" data-i18n="algoPurePursuit">Pure Pursuit</button>
+            <button type="button" class="toggle-btn" data-algo="bug2" data-i18n="algoBug2">Bug2 (M-line)</button>
+            <button type="button" class="toggle-btn" data-algo="dwa" data-i18n="algoDwa">DWA</button>
+            <button type="button" class="toggle-btn" data-algo="vfh" data-i18n="algoVfh">VFH</button>
+            <button type="button" class="toggle-btn" data-algo="potential_field" data-i18n="algoPotential">Potential Field</button>
+          </div>
+          <p class="hint arena-hint" data-i18n="arenaHint">Arena 30×30 m · robot 2×3 m · waypoints snap to grid</p>
+          <div class="btn-row">
+            <button type="button" id="startBtn" data-i18n="startBtn">Start Exploration</button>
+            <button type="button" id="resetBtn" data-i18n="resetBtn">Reset</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2 data-i18n="sectionMode">Interaction</h2>
+          <div class="btn-group" id="modeGroup" role="group">
+            <button type="button" class="toggle-btn active" data-mode="waypoints" data-i18n="modeWaypoints">Waypoints</button>
+            <button type="button" class="toggle-btn" data-mode="objects" data-i18n="modeObjects">Objects</button>
+          </div>
+          <p id="status" class="status-line" data-i18n="modeSetWaypoints">Current Mode: Set Waypoints</p>
+          <p class="hint hint-waypoints" data-i18n="waypointHint">Click the center scene to set waypoints (Green start, Yellow middle, Red end)</p>
+          <p class="hint hint-pathflow" data-i18n="pathFlowHint">Glow line shows your path — click the floor (short click, don't drag the camera)</p>
+        </section>
+      </aside>
+
+      <!-- CENTRO: robot / escena 3D -->
+      <main id="viewport" aria-label="3D simulation" data-drop-label="Drop here"></main>
+
+      <!-- DERECHA: drag & drop objetos -->
+      <aside id="panel-right" class="panel">
+        <section class="panel-section">
+          <h2 data-i18n="sectionDrag">Drag &amp; Drop</h2>
+          <p class="field-label" data-i18n="dragPaletteLabel">Drag onto the scene:</p>
+          <div class="drag-palette" id="dragPalette">
+            <div class="drag-item" draggable="true" data-type="sphere">
+              <span class="drag-icon sphere-icon" aria-hidden="true"></span>
+              <span>
+                <span class="drag-label" data-i18n="objSphere">Sphere</span>
+                <span class="drag-sub" data-i18n="dragSphereHint">Rolls when pushed</span>
+              </span>
+            </div>
+            <div class="drag-item" draggable="true" data-type="box">
+              <span class="drag-icon box-icon" aria-hidden="true"></span>
+              <span>
+                <span class="drag-label" data-i18n="objBox">Cube</span>
+                <span class="drag-sub" data-i18n="dragBoxHint">Stackable block</span>
+              </span>
+            </div>
+            <div class="drag-item" draggable="true" data-type="cylinder">
+              <span class="drag-icon cylinder-icon" aria-hidden="true"></span>
+              <span>
+                <span class="drag-label" data-i18n="objCylinder">Cylinder</span>
+                <span class="drag-sub" data-i18n="dragCylinderHint">Tips over easily</span>
+              </span>
+            </div>
+          </div>
+          <label for="objectMass" class="field-label">
+            <span data-i18n="objectMassLabel">Weight (kg):</span>
+            <span id="massValue" class="mass-value">5.0</span>
+          </label>
+          <input type="range" id="objectMass" min="0.5" max="50" step="0.5" value="5">
+          <button type="button" id="clearObjectsBtn" data-i18n="clearObjectsBtn">Clear Objects</button>
+          <p class="hint" data-i18n="objectHint">Grab an object from here and drop it on the center scene. Stack them up!</p>
+        </section>
+
+        <section class="panel-section panel-section-grow">
+          <h2 data-i18n="telemetryLog">Telemetry Log</h2>
+          <ul id="logList"></ul>
+        </section>
+      </aside>
+    </div>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

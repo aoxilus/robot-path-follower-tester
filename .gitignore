@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
+
+# Local only — never publish to GitHub
+.cursor/
+AGENTS.md
+docs/CURSOR-AGENTS.md
+*.local.md
+.cursorrules
+.cursorignore
