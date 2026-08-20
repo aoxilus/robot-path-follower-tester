@@ -65,7 +65,7 @@ const translations = {
         algoNameDwa: 'DWA',
         algoNameVfh: 'VFH',
         algoNamePotential: 'Potential Field',
-        algoNameCustom: 'Custom (JS hook)',
+        algoNameCustom: 'Custom (JS pad)',
         interactionModeLabel: 'Interaction Mode:',
         modeWaypoints: 'Set Waypoints',
         modeObjects: 'Place Physics Objects',
@@ -104,7 +104,17 @@ const translations = {
         algoDwa: 'DWA (ventana dinámica)',
         algoVfh: 'VFH (histograma vectorial)',
         algoPotential: 'Campo potencial',
-        algoCustom: 'Custom (gancho JS)',
+        algoCustom: 'Custom (bloc de JS)',
+        customPadTitle: 'JS Custom',
+        customSetupLabel: 'void setup — API del robot (solo lectura)',
+        customLoopLabel: 'loop() — asigna v y omega',
+        customCheckBtn: 'Checar',
+        customSaveBtn: 'Guardar',
+        customPadClose: 'Cerrar',
+        customCheckOk: 'Check OK — vars del robot + Math + draw',
+        customCheckFail: 'Check falló: {msg}',
+        customSaved: 'Guardado',
+        customSetupCopied: 'Copiado',
         sectionSensors: 'Sensores',
         sensorHint: 'Activa sensores — el algoritmo usa los disponibles',
         sensorLidar: 'LIDAR (360°, 5 m)',
@@ -137,7 +147,7 @@ const translations = {
         algoNameDwa: 'DWA',
         algoNameVfh: 'VFH',
         algoNamePotential: 'Campo Potencial',
-        algoNameCustom: 'Custom (gancho JS)',
+        algoNameCustom: 'Custom (bloc de JS)',
         interactionModeLabel: 'Modo de interacción:',
         modeWaypoints: 'Colocar waypoints',
         modeObjects: 'Colocar objetos físicos',
@@ -210,6 +220,9 @@ function applyLanguage(lang) {
     }
     if (typeof updateSensorStatus === 'function') {
         updateSensorStatus();
+    }
+    if (typeof refreshCustomPadI18n === 'function') {
+        refreshCustomPadI18n();
     }
 }
 
@@ -376,6 +389,9 @@ wheelPositions.forEach(pos => {
 });
 
 scene.add(robot);
+
+const customDrawGroup = new THREE.Group();
+scene.add(customDrawGroup);
 
 // Glow ring — pulses when placing waypoints
 const robotGlowRing = new THREE.Mesh(
@@ -1479,8 +1495,382 @@ const nav = createNavSystem({
     WP_ACCEPT_RADIUS,
 });
 
-const { sensorConfig, sensorSuite, computeNavCommand } = nav;
+const { sensorConfig, sensorSuite, computeNavCommand, setCustomRunner } = nav;
 const collisionSys = sensorSuite;
+
+const CUSTOM_LOOP_KEY = 'customLoopJs';
+const CUSTOM_LOOP_DEFAULT = 'v = MAX_SPEED * 0.60\nomega = headingErr * 2.00\n';
+const CUSTOM_FORBIDDEN = [
+    'alert', 'prompt', 'confirm', 'eval', 'Function', 'function', 'return',
+    'new', 'class', 'import', 'export', 'document', 'window', 'globalThis',
+    'self', 'top', 'parent', 'frames', 'opener', 'fetch', 'XMLHttpRequest',
+    'WebSocket', 'Worker', 'SharedWorker', 'localStorage', 'sessionStorage',
+    'indexedDB', 'cookie', 'setTimeout', 'setInterval', 'setImmediate',
+    'constructor', 'prototype', 'arguments', 'this', 'async', 'await',
+    'yield', 'debugger', 'with', 'try', 'catch', 'throw', 'finally',
+    'Object', 'Array', 'Date', 'RegExp', 'Error', 'Promise', 'Proxy',
+    'Reflect', 'Symbol', 'Map', 'Set', 'WeakMap', 'WeakSet', 'JSON',
+    'console', 'process', 'require', 'Deno', 'chrome', 'navigator',
+    'location', 'history', 'Blob', 'File', 'URL', 'Image', 'Audio',
+    'WebAssembly', 'Atomics', 'postMessage', 'MessageChannel',
+];
+const CUSTOM_ALLOW = [
+    'let', 'const', 'var', 'if', 'else', 'for', 'while', 'do', 'break',
+    'continue', 'true', 'false', 'null', 'undefined', 'NaN', 'Infinity',
+    'Math', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'abs',
+    'max', 'min', 'hypot', 'floor', 'ceil', 'round', 'sqrt', 'pow', 'PI',
+    'E', 'log', 'exp', 'sign', 'parseFloat', 'parseInt', 'isFinite', 'isNaN',
+    'Number', 'toFixed', 'length', 'robotX', 'robotZ', 'heading',
+    'waypointX', 'waypointZ', 'waypointDist', 'headingErr', 'blocked',
+    'forwardClear', 'nearest', 'lidar', 'ultrasonic', 'ir', 'MAX_SPEED',
+    'MAX_OMEGA', 'draw', 'v', 'omega', 'in', 'of',
+];
+const customPadEl = document.getElementById('customPad');
+const customSetupSrc = document.getElementById('customSetupSrc');
+const customLoopSrc = document.getElementById('customLoopSrc');
+const customCheckMsg = document.getElementById('customCheckMsg');
+let customCompiled = null;
+let customDrawCount = 0;
+
+function customSetupText() {
+    if (currentLang === 'es') {
+        return [
+            '// void setup — copia esto y pégaselo a una AI',
+            '// Ella debe devolver SOLO el loop: asignar v y omega.',
+            '//',
+            '// Variables del robot (solo lectura):',
+            '//   robotX, robotZ, heading',
+            '//   waypointX, waypointZ, waypointDist',
+            '//   headingErr, blocked, forwardClear, nearest',
+            '//   lidar[36], ultrasonic[3], ir[3]',
+            '//   MAX_SPEED, MAX_OMEGA',
+            '// Math: sin cos atan2 hypot abs max min PI',
+            '// draw(x, z)  — marca un punto en el piso',
+            '//',
+            '// Prohibido: alert, new, objetos {}, function, return,',
+            '//   document, window, fetch, eval, clases',
+            '//',
+            '// Estructura esperada del loop:',
+            '//   v = MAX_SPEED * 0.60',
+            '//   omega = headingErr * 2.00',
+            '//   draw(robotX, robotZ)',
+        ].join('\n');
+    }
+    return [
+        '// void setup — copy this and paste it to an AI',
+        '// The AI should return ONLY the loop: assign v and omega.',
+        '//',
+        '// Robot variables (read-only):',
+        '//   robotX, robotZ, heading',
+        '//   waypointX, waypointZ, waypointDist',
+        '//   headingErr, blocked, forwardClear, nearest',
+        '//   lidar[36], ultrasonic[3], ir[3]',
+        '//   MAX_SPEED, MAX_OMEGA',
+        '// Math: sin cos atan2 hypot abs max min PI',
+        '// draw(x, z)  — mark a point on the floor',
+        '//',
+        '// Forbidden: alert, new, object literals {}, function, return,',
+        '//   document, window, fetch, eval, classes',
+        '//',
+        '// Expected loop structure:',
+        '//   v = MAX_SPEED * 0.60',
+        '//   omega = headingErr * 2.00',
+        '//   draw(robotX, robotZ)',
+    ].join('\n');
+}
+
+function refreshCustomPadI18n() {
+    if (customSetupSrc) customSetupSrc.value = customSetupText();
+}
+
+function setCustomPadOpen(on) {
+    if (!customPadEl) return;
+    if (on) customPadEl.classList.add('open');
+    if (!on) customPadEl.classList.remove('open');
+}
+
+function clearCustomDraw() {
+    customDrawCount = 0;
+    while (customDrawGroup.children.length > 0) {
+        const ch = customDrawGroup.children[0];
+        customDrawGroup.remove(ch);
+        if (ch.geometry) ch.geometry.dispose();
+        if (ch.material) ch.material.dispose();
+    }
+}
+
+function customDrawMark(x, z) {
+    if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+    if (customDrawCount >= 20) return;
+    customDrawCount += 1;
+    const m = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0x00ffcc }),
+    );
+    m.position.set(x, 0.12, z);
+    customDrawGroup.add(m);
+}
+
+function stripCustomNoise(src) {
+    let out = '';
+    let mode = 'code';
+    for (let i = 0; i < src.length; i++) {
+        const c = src[i];
+        const n = i + 1 < src.length ? src[i + 1] : '';
+        if (mode === 'code' && c === '/' && n === '/') {
+            mode = 'line';
+            i += 1;
+        } else if (mode === 'code' && c === '/' && n === '*') {
+            mode = 'block';
+            i += 1;
+        } else if (mode === 'code' && c === '\'') {
+            mode = 'squote';
+        } else if (mode === 'code' && c === '"') {
+            mode = 'dquote';
+        } else if (mode === 'code' && c === '`') {
+            mode = 'template';
+        } else if (mode === 'line' && (c === '\n' || c === '\r')) {
+            mode = 'code';
+            out += ' ';
+        } else if (mode === 'block' && c === '*' && n === '/') {
+            mode = 'code';
+            i += 1;
+        } else if (mode === 'squote' && c === '\'') {
+            mode = 'code';
+        } else if (mode === 'dquote' && c === '"') {
+            mode = 'code';
+        } else if (mode === 'template' && c === '`') {
+            mode = 'code';
+        } else if (mode === 'code') {
+            out += c;
+        }
+    }
+    return out;
+}
+
+function customBracesOk(src) {
+    let curly = 0;
+    let round = 0;
+    let square = 0;
+    for (let i = 0; i < src.length; i++) {
+        const c = src[i];
+        if (c === '{') curly += 1;
+        if (c === '}') curly -= 1;
+        if (c === '(') round += 1;
+        if (c === ')') round -= 1;
+        if (c === '[') square += 1;
+        if (c === ']') square -= 1;
+        if (curly < 0 || round < 0 || square < 0) return 0;
+    }
+    if (curly !== 0 || round !== 0 || square !== 0) return 0;
+    return 1;
+}
+
+function checkCustomJs(src) {
+    if (!src || !src.trim()) return { ok: 0, msg: 'empty' };
+    const text = stripCustomNoise(src);
+    if (text.indexOf('=>') >= 0) return { ok: 0, msg: 'arrow =>' };
+    if (/\{\s*[A-Za-z_$][\w$]*\s*:/.test(text)) return { ok: 0, msg: 'object {}' };
+    if (!customBracesOk(text)) return { ok: 0, msg: 'unbalanced () [] {}' };
+    const declared = {};
+    const declRe = /\b(?:let|const|var)\s+([A-Za-z_$][\w$]*)/g;
+    let dm = declRe.exec(text);
+    while (dm) {
+        declared[dm[1]] = 1;
+        dm = declRe.exec(text);
+    }
+    for (let f = 0; f < CUSTOM_FORBIDDEN.length; f++) {
+        const word = CUSTOM_FORBIDDEN[f];
+        const re = new RegExp('\\b' + word + '\\b');
+        if (re.test(text)) return { ok: 0, msg: word };
+    }
+    const idRe = /\b[A-Za-z_$][\w$]*\b/g;
+    let im = idRe.exec(text);
+    while (im) {
+        const id = im[0];
+        let allowed = declared[id] ? 1 : 0;
+        for (let a = 0; a < CUSTOM_ALLOW.length; a++) {
+            if (CUSTOM_ALLOW[a] === id) allowed = 1;
+        }
+        if (!allowed) return { ok: 0, msg: 'unknown ' + id };
+        im = idRe.exec(text);
+    }
+    return { ok: 1, msg: '' };
+}
+
+function wrapCustomLoop(src) {
+    return '"use strict";\n'
+        + 'const robotX = api.robotX;\n'
+        + 'const robotZ = api.robotZ;\n'
+        + 'const heading = api.heading;\n'
+        + 'const waypointX = api.waypointX;\n'
+        + 'const waypointZ = api.waypointZ;\n'
+        + 'const waypointDist = api.waypointDist;\n'
+        + 'const headingErr = api.headingErr;\n'
+        + 'const blocked = api.blocked;\n'
+        + 'const forwardClear = api.forwardClear;\n'
+        + 'const nearest = api.nearest;\n'
+        + 'const lidar = api.lidar;\n'
+        + 'const ultrasonic = api.ultrasonic;\n'
+        + 'const ir = api.ir;\n'
+        + 'const MAX_SPEED = api.MAX_SPEED;\n'
+        + 'const MAX_OMEGA = api.MAX_OMEGA;\n'
+        + 'const Math = api.Math;\n'
+        + 'const draw = api.draw;\n'
+        + 'let v = 0;\n'
+        + 'let omega = 0;\n'
+        + src
+        + '\nreturn { v: v, omega: omega };\n';
+}
+
+function compileCustomLoop(src) {
+    const chk = checkCustomJs(src);
+    if (chk.ok === 0) return chk;
+    const body = wrapCustomLoop(src);
+    let fn = null;
+    try {
+        fn = Function('api', body);
+    } catch (err) {
+        return { ok: 0, msg: 'syntax' };
+    }
+    return { ok: 1, msg: '', fn };
+}
+
+function finiteOrZero(n) {
+    if (Number.isFinite(n)) return n;
+    return 0;
+}
+
+function runCustomLoop(ctx) {
+    clearCustomDraw();
+    if (!customCompiled) {
+        return computeCustomFileFallback(ctx);
+    }
+    const lidar = [];
+    if (ctx.reading && ctx.reading.lidar) {
+        for (let i = 0; i < ctx.reading.lidar.length; i++) {
+            lidar.push(ctx.reading.lidar[i]);
+        }
+    }
+    const ultrasonic = [null, null, null];
+    if (ctx.reading && ctx.reading.ultrasonic) {
+        for (let i = 0; i < 3 && i < ctx.reading.ultrasonic.length; i++) {
+            ultrasonic[i] = ctx.reading.ultrasonic[i];
+        }
+    }
+    const ir = [null, null, null];
+    if (ctx.reading && ctx.reading.ir) {
+        for (let i = 0; i < 3 && i < ctx.reading.ir.length; i++) {
+            ir[i] = ctx.reading.ir[i];
+        }
+    }
+    const api = {
+        robotX: ctx.robot.position.x,
+        robotZ: ctx.robot.position.z,
+        heading: ctx.robot.rotation.y,
+        waypointX: ctx.target.x,
+        waypointZ: ctx.target.z,
+        waypointDist: Math.hypot(ctx.target.x - ctx.robot.position.x, ctx.target.z - ctx.robot.position.z),
+        headingErr: ctx.headingErr,
+        blocked: ctx.blocked ? 1 : 0,
+        forwardClear: ctx.clear,
+        nearest: ctx.reading ? ctx.reading.minObstacleDist : Infinity,
+        lidar,
+        ultrasonic,
+        ir,
+        MAX_SPEED: ctx.MAX_SPEED,
+        MAX_OMEGA: ctx.MAX_OMEGA,
+        Math,
+        draw: customDrawMark,
+    };
+    const out = customCompiled(api);
+    if (!out) return { v: 0, omega: 0 };
+    const v = Math.max(-ctx.MAX_SPEED, Math.min(ctx.MAX_SPEED, finiteOrZero(out.v)));
+    const omega = Math.max(-ctx.MAX_OMEGA, Math.min(ctx.MAX_OMEGA, finiteOrZero(out.omega)));
+    return { v, omega };
+}
+
+function computeCustomFileFallback(ctx) {
+    const omega = Math.max(-ctx.MAX_OMEGA, Math.min(ctx.MAX_OMEGA, ctx.headingErr * 2));
+    return { v: ctx.MAX_SPEED * 0.60, omega };
+}
+
+function showCustomCheck(ok, msg) {
+    if (!customCheckMsg) return;
+    if (ok) {
+        customCheckMsg.textContent = t('customCheckOk');
+        customCheckMsg.className = 'custom-check-msg ok';
+    }
+    if (!ok) {
+        customCheckMsg.textContent = t('customCheckFail', { msg });
+        customCheckMsg.className = 'custom-check-msg fail';
+    }
+}
+
+function saveCustomLoop() {
+    const src = customLoopSrc ? customLoopSrc.value : '';
+    const compiled = compileCustomLoop(src);
+    if (compiled.ok === 0) {
+        showCustomCheck(0, compiled.msg);
+        return 0;
+    }
+    customCompiled = compiled.fn;
+    localStorage.setItem(CUSTOM_LOOP_KEY, src);
+    setCustomRunner(runCustomLoop);
+    showCustomCheck(1, '');
+    if (customCheckMsg) {
+        customCheckMsg.textContent = t('customSaved');
+        customCheckMsg.className = 'custom-check-msg ok';
+    }
+    return 1;
+}
+
+function loadCustomLoop() {
+    const saved = localStorage.getItem(CUSTOM_LOOP_KEY);
+    const src = saved && saved.length > 0 ? saved : CUSTOM_LOOP_DEFAULT;
+    if (customLoopSrc) customLoopSrc.value = src;
+    refreshCustomPadI18n();
+    const compiled = compileCustomLoop(src);
+    if (compiled.ok === 1) {
+        customCompiled = compiled.fn;
+        setCustomRunner(runCustomLoop);
+        showCustomCheck(1, '');
+        return;
+    }
+    customCompiled = null;
+    setCustomRunner(runCustomLoop);
+    showCustomCheck(0, compiled.msg);
+}
+
+function copyCustomSetup() {
+    const text = customSetupSrc ? customSetupSrc.value : '';
+    if (!text) return;
+    const btn = document.getElementById('customSetupCopy');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            if (!btn) return;
+            btn.textContent = t('customSetupCopied');
+            window.setTimeout(() => { btn.textContent = t('copyLogBtn'); }, 1500);
+        });
+    }
+}
+
+const customPadClose = document.getElementById('customPadClose');
+if (customPadClose) customPadClose.addEventListener('click', () => setCustomPadOpen(0));
+const customSetupCopyBtn = document.getElementById('customSetupCopy');
+if (customSetupCopyBtn) customSetupCopyBtn.addEventListener('click', copyCustomSetup);
+const customCheckBtn = document.getElementById('customCheckBtn');
+if (customCheckBtn) {
+    customCheckBtn.addEventListener('click', () => {
+        const src = customLoopSrc ? customLoopSrc.value : '';
+        const compiled = compileCustomLoop(src);
+        showCustomCheck(compiled.ok, compiled.msg);
+    });
+}
+const customSaveBtn = document.getElementById('customSaveBtn');
+if (customSaveBtn) customSaveBtn.addEventListener('click', saveCustomLoop);
+
+loadCustomLoop();
 
 const sensorStatusEl = document.getElementById('sensorStatus');
 
@@ -1931,6 +2321,7 @@ document.querySelectorAll('#algoGroup .toggle-btn').forEach((btn) => {
         document.querySelectorAll('#algoGroup .toggle-btn').forEach((b) => {
             b.classList.toggle('active', b === btn);
         });
+        setCustomPadOpen(activeAlgo === 'custom' ? 1 : 0);
     });
 });
 
