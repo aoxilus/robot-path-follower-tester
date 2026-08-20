@@ -109,4 +109,4 @@ Walkthrough: **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** (sensors, algorith
 
 MIT — use it, break it, improve it.
 
-Made with 🥑
+Made with 🥑 by [aoxilus](https://github.com/aoxilus)
