@@ -54,7 +54,7 @@
             <button type="button" class="toggle-btn" data-algo="potential_field" data-i18n="algoPotential">Potential Field</button>
             <button type="button" class="toggle-btn" data-algo="custom" data-i18n="algoCustom">Custom (JS hook)</button>
           </div>
-          <p class="hint arena-hint" data-i18n="arenaHint">Arena 30×30 m · robot 2×3 m · waypoints snap to grid</p>
+          <p class="hint arena-hint" data-i18n="arenaHint">Arena 30×30 m (900 m²) · robot 2×3 m · waypoints snap to grid</p>
           <div class="btn-row">
             <button type="button" id="startBtn" data-i18n="startBtn">Start Exploration</button>
             <button type="button" id="resetBtn" data-i18n="resetBtn">Reset</button>
@@ -75,7 +75,7 @@
 
       <!-- CENTRO: robot / escena 3D -->
       <main id="viewport" aria-label="3D simulation" data-drop-label="Drop here">
-        <div id="buildStamp">build 08202026 1250</div>
+        <div id="buildStamp">build 08202026 1300</div>
         <div id="customPad" class="custom-pad">
           <div class="custom-pad-bar">
             <h2 data-i18n="customPadTitle">Custom JS</h2>
@@ -128,6 +128,12 @@
               </span>
             </div>
           </div>
+          <label for="terrainSize" class="field-label">
+            <span data-i18n="terrainSizeLabel">Terrain:</span>
+            <span id="terrainValue" class="mass-value">900 m²</span>
+          </label>
+          <input type="range" id="terrainSize" min="10" max="60" step="5" value="30">
+          <p class="hint" data-i18n="terrainSizeHint">Side length 10–60 m · area in m²</p>
           <label for="objectMass" class="field-label">
             <span data-i18n="objectMassLabel">Weight (kg):</span>
             <span id="massValue" class="mass-value">5.0</span>

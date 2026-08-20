@@ -15,7 +15,6 @@ export function createNavSystem(ctx) {
         LIDAR_RANGE,
         ULTRASONIC_RANGE,
         IR_RANGE,
-        BUILD_LIMIT,
         MAX_SPEED,
         MAX_OMEGA,
         PASS_CLEAR_MARGIN,
@@ -533,7 +532,7 @@ export function createNavSystem(ctx) {
                     const futureAngle = robot.rotation.y + turnAngle;
                     const nx = robot.position.x + Math.sin(futureAngle) * v * simT;
                     const nz = robot.position.z + Math.cos(futureAngle) * v * simT;
-                    if (Math.abs(nx) > BUILD_LIMIT || Math.abs(nz) > BUILD_LIMIT) continue;
+                    if (Math.abs(nx) > ctx.BUILD_LIMIT || Math.abs(nz) > ctx.BUILD_LIMIT) continue;
 
                     const toGoal = normalizeAngle(goalAngle - futureAngle);
                     const clearance = clearanceForTurn(turnAngle);

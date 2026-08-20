@@ -7,7 +7,7 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08202026 1250';
+const BUILD_STAMP = '08202026 1300';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
@@ -40,7 +40,7 @@ const translations = {
         sensorHitTest: 'Hit test (footprint avoid / stop)',
         sensorStatusNone: 'No sensors — blind drive (bump + physics push)',
         sensorStatusActive: 'Active: {list}',
-        arenaHint: 'Arena 30×30 m · robot 2×3 m · waypoints snap to grid',
+        arenaHint: 'Arena {side}×{side} m ({area} m²) · robot 2×3 m · waypoints snap to grid',
         startBtn: 'Start Mission',
         resetBtn: 'Reset',
         waypointHint: 'Floor: drag = rotate/zoom camera · short click = add waypoint. Rover/objects: click+hold+drag to move.',
@@ -76,6 +76,8 @@ const translations = {
         objCone: 'Cone',
         objectMassLabel: 'Weight (kg):',
         objectScaleLabel: 'Scale:',
+        terrainSizeLabel: 'Terrain:',
+        terrainSizeHint: 'Side length 10–60 m · area in m²',
         propEditHint: 'Select a prop to edit mass/scale. Sliders set defaults for the next drop.',
         clearObjectsBtn: 'Clear Objects',
         moveObjectsLabel: 'Move objects (hold+drag)',
@@ -125,7 +127,7 @@ const translations = {
         sensorHitTest: 'Hit test (esquive / freno por huella)',
         sensorStatusNone: 'Sin sensores — a ciegas (choca y empuja con física)',
         sensorStatusActive: 'Activos: {list}',
-        arenaHint: 'Arena 30×30 m · robot 2×3 m · waypoints en rejilla',
+        arenaHint: 'Arena {side}×{side} m ({area} m²) · robot 2×3 m · waypoints en rejilla',
         startBtn: 'Iniciar misión',
         resetBtn: 'Reiniciar',
         waypointHint: 'Suelo: arrastrar = girar/zoom · clic corto = waypoint. Rover/objetos: mantén clic y arrastra.',
@@ -161,6 +163,8 @@ const translations = {
         objCone: 'Cono',
         objectMassLabel: 'Peso (kg):',
         objectScaleLabel: 'Escala:',
+        terrainSizeLabel: 'Terreno:',
+        terrainSizeHint: 'Lado 10–60 m · área en m²',
         propEditHint: 'Selecciona un objeto para editar peso/escala. Los sliders son default del próximo drop.',
         clearObjectsBtn: 'Quitar objetos',
         moveObjectsLabel: 'Mover objetos (mantén+arrastra)',
@@ -212,6 +216,10 @@ function applyLanguage(lang) {
     document.documentElement.lang = lang;
 
     document.querySelectorAll('[data-i18n]').forEach((el) => {
+        if (el.dataset.i18n === 'arenaHint') {
+            el.textContent = arenaHintText();
+            return;
+        }
         el.textContent = t(el.dataset.i18n);
     });
 
@@ -229,6 +237,9 @@ function applyLanguage(lang) {
     }
     if (typeof refreshCustomPadI18n === 'function') {
         refreshCustomPadI18n();
+    }
+    if (typeof updateTerrainUi === 'function') {
+        updateTerrainUi();
     }
 }
 
@@ -316,12 +327,15 @@ function createSquareTexture() {
     return new THREE.CanvasTexture(canvas);
 }
 
-// 🗺️ Environment — 30×30 m arena (±15 m), robot 2×3 m footprint
-const PLANE_SIZE = 30;
-const PLANE_HALF = PLANE_SIZE / 2;
+// 🗺️ Environment — scalable arena (±half), robot 2×3 m footprint
 const BUILD_MARGIN = 1.5; // keep props/obstacles inside playable area
-const BUILD_LIMIT = PLANE_HALF - BUILD_MARGIN;
 const WP_ACCEPT_RADIUS = 1.5;
+const TERRAIN_MIN = 10;
+const TERRAIN_MAX = 60;
+const TERRAIN_STEP = 5;
+let PLANE_SIZE = 30;
+let PLANE_HALF = PLANE_SIZE / 2;
+let BUILD_LIMIT = PLANE_HALF - BUILD_MARGIN;
 
 const planeGeo = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE);
 const planeMat = new THREE.MeshStandardMaterial({ 
@@ -334,11 +348,91 @@ plane.receiveShadow = true;
 scene.add(plane);
 
 // Grid helper
-const gridHelper = new THREE.GridHelper(PLANE_SIZE, PLANE_SIZE, 0x00ffcc, 0x000000);
+let gridHelper = new THREE.GridHelper(PLANE_SIZE, PLANE_SIZE, 0x00ffcc, 0x000000);
 gridHelper.position.y = 0.01;
 gridHelper.material.opacity = 0.2;
 gridHelper.material.transparent = true;
 scene.add(gridHelper);
+
+function arenaAreaSqm() {
+    return PLANE_SIZE * PLANE_SIZE;
+}
+
+function arenaHintText() {
+    return t('arenaHint', { side: PLANE_SIZE, area: arenaAreaSqm() });
+}
+
+function updateTerrainUi() {
+    const valueEl = document.getElementById('terrainValue');
+    if (valueEl) {
+        valueEl.textContent = `${PLANE_SIZE}×${PLANE_SIZE} m · ${arenaAreaSqm()} m²`;
+    }
+    const hintEl = document.querySelector('.arena-hint');
+    if (hintEl) hintEl.textContent = arenaHintText();
+}
+
+function setTerrainSize(size) {
+    const next = Math.max(TERRAIN_MIN, Math.min(TERRAIN_MAX, Math.round(size / TERRAIN_STEP) * TERRAIN_STEP));
+    if (next === PLANE_SIZE) {
+        updateTerrainUi();
+        return;
+    }
+    PLANE_SIZE = next;
+    PLANE_HALF = PLANE_SIZE / 2;
+    BUILD_LIMIT = PLANE_HALF - BUILD_MARGIN;
+
+    plane.geometry.dispose();
+    plane.geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE);
+
+    scene.remove(gridHelper);
+    gridHelper.geometry.dispose();
+    if (Array.isArray(gridHelper.material)) {
+        gridHelper.material.forEach((m) => m.dispose());
+    } else {
+        gridHelper.material.dispose();
+    }
+    gridHelper = new THREE.GridHelper(PLANE_SIZE, PLANE_SIZE, 0x00ffcc, 0x000000);
+    gridHelper.position.y = 0.01;
+    gridHelper.material.opacity = 0.2;
+    gridHelper.material.transparent = true;
+    scene.add(gridHelper);
+
+    scene.fog.near = Math.max(8, PLANE_SIZE * 0.35);
+    scene.fog.far = Math.max(40, PLANE_SIZE * 1.7);
+
+    clampRobotPosition();
+    for (let i = 0; i < physicsProps.length; i++) {
+        const prop = physicsProps[i];
+        const c = clampToArena(prop.mesh.position.x, prop.mesh.position.z);
+        prop.mesh.position.x = c.x;
+        prop.mesh.position.z = c.z;
+        prop.body.position.x = c.x;
+        prop.body.position.z = c.z;
+    }
+    for (let i = 0; i < stageCones.length; i++) {
+        const cone = stageCones[i];
+        const c = clampToArena(cone.mesh.position.x, cone.mesh.position.z);
+        cone.mesh.position.x = c.x;
+        cone.mesh.position.z = c.z;
+        cone.body.position.x = c.x;
+        cone.body.position.z = c.z;
+        if (obstacles[i]) {
+            obstacles[i].position.x = c.x;
+            obstacles[i].position.z = c.z;
+        }
+    }
+    for (let i = 0; i < waypoints.length; i++) {
+        const c = clampToArena(waypoints[i].x, waypoints[i].z);
+        waypoints[i].x = c.x;
+        waypoints[i].z = c.z;
+        if (waypointMarkers[i]) {
+            waypointMarkers[i].position.x = c.x;
+            waypointMarkers[i].position.z = c.z;
+        }
+    }
+    if (typeof updatePathFlow === 'function') updatePathFlow();
+    updateTerrainUi();
+}
 
 // 🛞 4-wheel robot — yellow body + 4 cylindrical wheels (differential-drive style)
 const robot = new THREE.Group();
@@ -1664,7 +1758,7 @@ const nav = createNavSystem({
     LIDAR_RANGE,
     ULTRASONIC_RANGE,
     IR_RANGE,
-    BUILD_LIMIT,
+    get BUILD_LIMIT() { return BUILD_LIMIT; },
     MAX_SPEED,
     MAX_OMEGA,
     PASS_CLEAR_MARGIN,
@@ -2561,6 +2655,15 @@ const massSlider = document.getElementById('objectMass');
 const massValueEl = document.getElementById('massValue');
 const scaleSlider = document.getElementById('objectScale');
 const scaleValueEl = document.getElementById('scaleValue');
+const terrainSlider = document.getElementById('terrainSize');
+
+if (terrainSlider) {
+    terrainSlider.value = String(PLANE_SIZE);
+    updateTerrainUi();
+    terrainSlider.addEventListener('input', (e) => {
+        setTerrainSize(parseFloat(e.target.value));
+    });
+}
 
 if (massSlider) {
     massSlider.value = String(DEFAULT_PROP_MASS);
