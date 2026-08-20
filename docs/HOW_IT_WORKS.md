@@ -46,22 +46,27 @@ Three columns / Tres columnas:
 **Interaction / Interacción**
 
 - **Waypoints** — short click on the floor to add; hold+drag the rover to move it.
-- **Objects** — drag from the right palette onto the scene.
-- **Move objects** — checkbox: drag props only (rover and waypoints disabled).
+- **Objects** — drag from the right palette onto the scene. Click a prop to select it; **Weight** and **Scale** sliders edit the selection (or set defaults for the next drop).
+- **Move objects** — checkbox: camera orbit/zoom locked; drag cones and props only.
 
 ---
 
 ## Sensors / Sensores
 
-Algorithms share one fused reading in `nav.js`. If a sensor is off, that channel is ignored. Physical collision still uses the rover footprint (`queryPose`), not only rays.
+Algorithms share one fused reading in `nav.js`. If a ray sensor is off, that channel is ignored.
 
-Los algoritmos comparten una lectura fusionada en `nav.js`. Si un sensor está apagado, ese canal no cuenta. La colisión física sigue usando la huella del rover (`queryPose`).
+Los algoritmos comparten una lectura fusionada en `nav.js`. Si un sensor de rayos está apagado, ese canal no cuenta.
 
 | Sensor | Range | Role / Rol |
 |--------|-------|------------|
 | **LIDAR** | 5 m | 360° scan (36 bins), rays on top of the rover |
 | **Ultrasonic** | 4 m | Front cone (−0.35, 0, +0.35 rad) |
 | **IR ×3** | 2 m | Short bumper rays left / center / right |
+| **Hit test** | footprint | Avoid / stop using the rover hull. **On** (default): go-around (`dontbeWebon`) + no overlap. **Off**: rover **pushes** light props (`cannon-es`); still blocked by stage cones and heavy props (≥ 25 kg). |
+
+Verified in-sim: path algorithms + go-around work with hit test on; with hit test off the rover can shove boxes/spheres/cylinders.
+
+Comprobado en el sim: los algoritmos y el rodear funcionan con hit test on; con hit test off el rover empuja objetos ligeros.
 
 ---
 

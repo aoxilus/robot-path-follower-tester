@@ -7,14 +7,13 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08192026 740';
+const BUILD_STAMP = '08202026 1250';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
     en: {
         pageTitle: 'Robot Path Follower Tester',
         title: 'Robot Path Follower Tester',
-        futureNote: 'Future: program your own algorithms in Python or JavaScript',
         langLabel: 'Language:',
         algorithmLabel: 'Path Algorithm:',
         algoPurePursuit: 'Pure Pursuit (path tracking)',
@@ -38,7 +37,8 @@ const translations = {
         sensorLidar: 'LIDAR (360° scan, 5 m)',
         sensorUltrasonic: 'Ultrasonic (front cone, 4 m)',
         sensorIr: '3× IR front (short range, 2 m)',
-        sensorStatusNone: 'No sensors — blind drive (physical collision only)',
+        sensorHitTest: 'Hit test (footprint avoid / stop)',
+        sensorStatusNone: 'No sensors — blind drive (bump + physics push)',
         sensorStatusActive: 'Active: {list}',
         arenaHint: 'Arena 30×30 m · robot 2×3 m · waypoints snap to grid',
         startBtn: 'Start Mission',
@@ -73,12 +73,15 @@ const translations = {
         objSphere: 'Sphere',
         objBox: 'Cube',
         objCylinder: 'Cylinder',
+        objCone: 'Cone',
         objectMassLabel: 'Weight (kg):',
+        objectScaleLabel: 'Scale:',
+        propEditHint: 'Select a prop to edit mass/scale. Sliders set defaults for the next drop.',
         clearObjectsBtn: 'Clear Objects',
         moveObjectsLabel: 'Move objects (hold+drag)',
-        moveObjectsHint: 'When on: drag scene objects only. Rover and waypoints disabled.',
-        modeMoveObjects: 'Move objects mode — drag props in the scene',
-        objectHint: 'Drag from palette to place. Enable move mode to reposition objects.',
+        moveObjectsHint: 'When on: camera locked (no zoom/orbit). Drag cones and props only.',
+        modeMoveObjects: 'Move objects — camera locked · drag cones & props',
+        objectHint: 'Drag from palette to place. Click+drag props/cones to move. Scale/mass apply to selection.',
         objectMoveHint: 'Hold and drag to move — release to drop',
         roverSelectedHint: 'Rover selected — hold+drag to move, then short-click floor for waypoints',
         logObjectMoved: 'OBJECT: Moved {type} to [{x}, {z}]',
@@ -96,7 +99,6 @@ const translations = {
     es: {
         pageTitle: 'Robot Path Follower Tester',
         title: 'Probador de Seguidor de Ruta Robot',
-        futureNote: 'Futuro: programa tus propios algoritmos en Python o JavaScript',
         langLabel: 'Idioma:',
         algorithmLabel: 'Algoritmo de ruta:',
         algoPurePursuit: 'Pure Pursuit (seguimiento)',
@@ -120,7 +122,8 @@ const translations = {
         sensorLidar: 'LIDAR (360°, 5 m)',
         sensorUltrasonic: 'Ultrasónico (cono frontal, 4 m)',
         sensorIr: '3× IR frontal (corto alcance, 2 m)',
-        sensorStatusNone: 'Sin sensores — conducción a ciegas (solo colisión física)',
+        sensorHitTest: 'Hit test (esquive / freno por huella)',
+        sensorStatusNone: 'Sin sensores — a ciegas (choca y empuja con física)',
         sensorStatusActive: 'Activos: {list}',
         arenaHint: 'Arena 30×30 m · robot 2×3 m · waypoints en rejilla',
         startBtn: 'Iniciar misión',
@@ -155,12 +158,15 @@ const translations = {
         objSphere: 'Esfera',
         objBox: 'Cubo',
         objCylinder: 'Cilindro',
+        objCone: 'Cono',
         objectMassLabel: 'Peso (kg):',
+        objectScaleLabel: 'Escala:',
+        propEditHint: 'Selecciona un objeto para editar peso/escala. Los sliders son default del próximo drop.',
         clearObjectsBtn: 'Quitar objetos',
         moveObjectsLabel: 'Mover objetos (mantén+arrastra)',
-        moveObjectsHint: 'Activo: solo arrastrar objetos. Rover y waypoints desactivados.',
-        modeMoveObjects: 'Modo mover objetos — arrastra props en escena',
-        objectHint: 'Arrastra del panel para colocar. Activa mover para reposicionar objetos.',
+        moveObjectsHint: 'Activo: cámara bloqueada (sin zoom/órbita). Solo arrastra conos y props.',
+        modeMoveObjects: 'Mover objetos — cámara bloqueada · arrastra conos y props',
+        objectHint: 'Arrastra del panel para colocar. Clic+arrastra props/conos. Escala/peso aplican a la selección.',
         objectMoveHint: 'Mantén y arrastra — suelta para soltar',
         roverSelectedHint: 'Rover seleccionado — mantén+arrastra para mover, luego clic corto en suelo para waypoints',
         logObjectMoved: 'OBJETO: {type} movido a [{x}, {z}]',
@@ -408,22 +414,26 @@ robotGlowRing.rotation.x = -Math.PI / 2;
 robotGlowRing.position.y = 0.08;
 robot.add(robotGlowRing);
 
-// 🧱 Static obstacles — fixed red cones the robot must avoid
+// 🧱 Stage cones — red ovals; editable (move) but immovable by rover push
 const obstacles = [];
-const obsGeo = new THREE.CylinderGeometry(1, 1.5, carHeight + 0.5, 32); // oval-ish base by scaling later
-const obsMat = new THREE.MeshStandardMaterial({ color: 0xff3366, roughness: 0.6 });
+const stageCones = [];
+const obsGeo = new THREE.CylinderGeometry(1, 1.5, carHeight + 0.5, 32);
+const CONE_HALF_H = (carHeight + 0.5) / 2;
 
 for (let i = 0; i < 2; i++) {
-    const obs = new THREE.Mesh(obsGeo, obsMat);
-    obs.position.y = (carHeight + 0.5) / 2;
-    obs.scale.set(1, 1, 0.5); // make it oval
+    const obs = new THREE.Mesh(
+        obsGeo,
+        new THREE.MeshStandardMaterial({ color: 0xff3366, roughness: 0.6 }),
+    );
+    obs.position.y = CONE_HALF_H;
+    obs.scale.set(1, 1, 0.5);
     obs.castShadow = true;
     obs.receiveShadow = true;
     scene.add(obs);
     obstacles.push(obs);
 }
-obstacles[0].position.set(-3, (carHeight + 0.5) / 2, -2);
-obstacles[1].position.set(4, (carHeight + 0.5) / 2, 3);
+obstacles[0].position.set(-3, CONE_HALF_H, -2);
+obstacles[1].position.set(4, CONE_HALF_H, 3);
 
 // ⚙️ Physics (cannon-es) — stackable props the robot pushes on contact
 const physicsWorld = new CANNON.World();
@@ -470,6 +480,17 @@ obstacles.forEach((obs) => {
     body.quaternion.setFromEuler(0, obs.rotation.y, 0);
     physicsWorld.addBody(body);
     staticObstacleBodies.push(body);
+
+    const entry = {
+        mesh: obs,
+        body,
+        type: 'cone',
+        mass: 0,
+        scale: 1,
+        isStageCone: 1,
+    };
+    obs.userData.physicsProp = entry;
+    stageCones.push(entry);
 });
 
 const robotBody = new CANNON.Body({
@@ -490,16 +511,74 @@ physicsWorld.addBody(robotBody);
 const physicsProps = [];
 const PROP_COLORS = { sphere: 0x44aaff, box: 0xffaa44, cylinder: 0xaa44ff };
 const PROP_HALF_HEIGHT = { sphere: 0.5, box: 0.5, cylinder: 0.5 };
+const DEFAULT_PROP_MASS = 5;
+const DEFAULT_PROP_SCALE = 1;
 
 function propTypeLabel(type) {
-    const keys = { sphere: 'objSphere', box: 'objBox', cylinder: 'objCylinder' };
+    const keys = {
+        sphere: 'objSphere',
+        box: 'objBox',
+        cylinder: 'objCylinder',
+        cone: 'objCone',
+    };
     return t(keys[type] ?? type);
 }
 
-function createPhysicsProp(type, x, y, z, mass) {
-    let mesh;
-    let shape;
+function clearBodyShapes(body) {
+    while (body.shapes.length > 0) {
+        body.removeShape(body.shapes[0]);
+    }
+}
+
+function addPropShapes(body, type, scale) {
+    const s = Math.max(0.25, scale);
+    if (type === 'sphere') {
+        body.addShape(new CANNON.Sphere(0.5 * s));
+    } else if (type === 'box') {
+        const h = 0.5 * s;
+        body.addShape(new CANNON.Box(new CANNON.Vec3(h, h, h)));
+    } else {
+        const r = 0.5 * s;
+        const h = 1 * s;
+        const cylQuat = new CANNON.Quaternion();
+        cylQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        body.addShape(new CANNON.Cylinder(r, r, h, 12), new CANNON.Vec3(), cylQuat);
+    }
+}
+
+function propHalfHeight(prop) {
+    if (prop.isStageCone) return CONE_HALF_H;
+    return PROP_HALF_HEIGHT[prop.type] * (prop.scale || 1);
+}
+
+function setPropMass(prop, mass) {
+    if (prop.isStageCone) return;
     const bodyMass = Math.max(0.5, mass);
+    prop.mass = bodyMass;
+    prop.body.mass = bodyMass;
+    prop.body.updateMassProperties();
+    prop.body.wakeUp();
+}
+
+function setPropScale(prop, scale) {
+    if (prop.isStageCone) return;
+    const s = Math.max(0.25, Math.min(3, scale));
+    prop.scale = s;
+    prop.mesh.scale.setScalar(s);
+    clearBodyShapes(prop.body);
+    addPropShapes(prop.body, prop.type, s);
+    // Keep resting on the floor / current contact height by half-extent.
+    const y = Math.max(propHalfHeight(prop) + 0.02, prop.mesh.position.y);
+    prop.mesh.position.y = y;
+    prop.body.position.y = y;
+    prop.body.velocity.set(0, 0, 0);
+    prop.body.angularVelocity.set(0, 0, 0);
+    prop.body.wakeUp();
+}
+
+function createPhysicsProp(type, x, y, z, mass = DEFAULT_PROP_MASS, scale = DEFAULT_PROP_SCALE) {
+    const bodyMass = Math.max(0.5, mass ?? DEFAULT_PROP_MASS);
+    const s = Math.max(0.25, Math.min(3, scale ?? DEFAULT_PROP_SCALE));
     const body = new CANNON.Body({
         mass: bodyMass,
         material: propMaterial,
@@ -507,32 +586,26 @@ function createPhysicsProp(type, x, y, z, mass) {
         angularDamping: 0.25,
     });
 
+    let mesh;
     if (type === 'sphere') {
-        const radius = 0.5;
         mesh = new THREE.Mesh(
-            new THREE.SphereGeometry(radius, 24, 16),
+            new THREE.SphereGeometry(0.5, 24, 16),
             new THREE.MeshStandardMaterial({ color: PROP_COLORS.sphere, roughness: 0.45, metalness: 0.1 }),
         );
-        shape = new CANNON.Sphere(radius);
-        body.addShape(shape);
     } else if (type === 'box') {
         mesh = new THREE.Mesh(
             new THREE.BoxGeometry(1, 1, 1),
             new THREE.MeshStandardMaterial({ color: PROP_COLORS.box, roughness: 0.45, metalness: 0.05 }),
         );
-        shape = new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5));
-        body.addShape(shape);
     } else {
         mesh = new THREE.Mesh(
             new THREE.CylinderGeometry(0.5, 0.5, 1, 20),
             new THREE.MeshStandardMaterial({ color: PROP_COLORS.cylinder, roughness: 0.45, metalness: 0.05 }),
         );
-        shape = new CANNON.Cylinder(0.5, 0.5, 1, 12);
-        const cylQuat = new CANNON.Quaternion();
-        cylQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-        body.addShape(shape, new CANNON.Vec3(), cylQuat);
     }
 
+    addPropShapes(body, type, s);
+    mesh.scale.setScalar(s);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.position.set(x, y, z);
@@ -540,7 +613,7 @@ function createPhysicsProp(type, x, y, z, mass) {
 
     physicsWorld.addBody(body);
     scene.add(mesh);
-    const entry = { mesh, body, type, mass: bodyMass };
+    const entry = { mesh, body, type, mass: bodyMass, scale: s };
     mesh.userData.physicsProp = entry;
     physicsProps.push(entry);
     if (typeof collisionSys !== 'undefined') {
@@ -705,11 +778,55 @@ function queryPose(x, z, rotY) {
     return lastHitTest;
 }
 
+// Blind mode: only immovable things stop the rover (static cones + heavy props).
+// Light props are pushable via cannon-es and must not block applyMotion.
+const HEAVY_PROP_KG = 25;
+
+function poseBlocksMotion(x, z, rotY) {
+    if (!sensorConfig.hitTest) {
+        const inset = hitInsetMeters();
+        const rover = roverFootprintCorners(x, z, rotY, inset);
+        const box = new THREE.Box3();
+        for (let i = 0; i < obstacles.length; i++) {
+            box.setFromObject(obstacles[i]);
+            if (polygonsOverlap(rover, boxCorners2d(box))) {
+                lastHitTest = {
+                    clear: 0,
+                    kind: 'cone',
+                    id: i,
+                    x: Number(obstacles[i].position.x.toFixed(2)),
+                    z: Number(obstacles[i].position.z.toFixed(2)),
+                };
+                return 1;
+            }
+        }
+        for (let i = 0; i < physicsProps.length; i++) {
+            const prop = physicsProps[i];
+            if (prop.mass < HEAVY_PROP_KG) continue;
+            box.setFromObject(prop.mesh);
+            if (polygonsOverlap(rover, boxCorners2d(box))) {
+                lastHitTest = {
+                    clear: 0,
+                    kind: prop.type,
+                    id: i,
+                    x: Number(prop.mesh.position.x.toFixed(2)),
+                    z: Number(prop.mesh.position.z.toFixed(2)),
+                };
+                return 1;
+            }
+        }
+        lastHitTest = { clear: 1, kind: null, id: -1, x: null, z: null };
+        return 0;
+    }
+    return queryPose(x, z, rotY).clear === 0 ? 1 : 0;
+}
+
 function robotIntersectsObstaclesAt(x, z, rotY) {
     return queryPose(x, z, rotY).clear === 0;
 }
 
 function depenetrateRobot() {
+    if (!sensorConfig.hitTest) return 0;
     const hit = queryPose(robot.position.x, robot.position.z, robot.rotation.y);
     if (hit.clear) return 0;
     const step = hitInsetMeters();
@@ -743,9 +860,12 @@ function applyRobotPushImpulse(dt) {
     const forward = new THREE.Vector3(0, 0, 1)
         .applyMatrix4(new THREE.Matrix4().extractRotation(robot.matrixWorld))
         .normalize();
-    const pushSpeed = 4;
+    // Stronger shove when hit-test is off — rover drives into props on purpose.
+    const hitOff = !sensorConfig.hitTest;
+    const pushSpeed = hitOff ? 7 : 4;
 
     physicsProps.forEach(({ mesh, body, mass }) => {
+        if (mass >= HEAVY_PROP_KG) return;
         const propBox = new THREE.Box3().setFromObject(mesh);
         if (!robotBox.intersectsBox(propBox)) return;
 
@@ -919,8 +1039,12 @@ function pickSceneTarget(clientX, clientY) {
     pointerToNdc(clientX, clientY);
     raycaster.setFromCamera(mouse, camera);
 
-    if (physicsProps.length > 0) {
-        const propHits = raycaster.intersectObjects(physicsProps.map((p) => p.mesh), false);
+    const movableMeshes = [
+        ...physicsProps.map((p) => p.mesh),
+        ...stageCones.map((c) => c.mesh),
+    ];
+    if (movableMeshes.length > 0) {
+        const propHits = raycaster.intersectObjects(movableMeshes, false);
         if (propHits.length > 0) {
             return {
                 type: 'prop',
@@ -1006,19 +1130,60 @@ function setPropHighlight(prop, on) {
 }
 
 function selectProp(prop) {
-    if (selectedProp === prop) return;
+    if (animating) {
+        if (selectedProp) setPropHighlight(selectedProp, false);
+        selectedProp = null;
+        moveHandle.visible = false;
+        return;
+    }
+    if (selectedProp === prop) {
+        if (prop) syncPropInspector(prop);
+        return;
+    }
     if (selectedProp) setPropHighlight(selectedProp, false);
     selectedProp = prop;
     if (prop) {
         setPropHighlight(prop, true);
         moveHandle.visible = true;
-        if (mode === 'objects' && !animating) {
+        syncPropInspector(prop);
+        if ((mode === 'objects' || moveObjectsMode) && !animating) {
             statusEl.textContent = t('objectMoveHint');
         }
     } else {
         moveHandle.visible = false;
+        syncPropInspector(null);
         updateModeUi();
     }
+}
+
+function syncPropInspector(prop) {
+    const massEl = document.getElementById('objectMass');
+    const massVal = document.getElementById('massValue');
+    const scaleEl = document.getElementById('objectScale');
+    const scaleVal = document.getElementById('scaleValue');
+    if (!massEl || !scaleEl) return;
+    const cone = prop?.isStageCone ? 1 : 0;
+    massEl.disabled = !!cone;
+    scaleEl.disabled = !!cone;
+    if (prop && !cone) {
+        massEl.value = String(prop.mass);
+        if (massVal) massVal.textContent = Number(prop.mass).toFixed(1);
+        scaleEl.value = String(prop.scale ?? 1);
+        if (scaleVal) scaleVal.textContent = Number(prop.scale ?? 1).toFixed(2);
+    }
+}
+
+function syncCameraControls() {
+    // Move-objects mode locks orbit (no zoom / pan / turn) so drags move props.
+    const lock = moveObjectsMode || isDraggingProp || isDraggingRobot;
+    controls.enabled = !lock;
+}
+
+function clearDraggableAuras() {
+    deselectProp();
+    setRobotSelected(0);
+    moveHandle.visible = false;
+    robotGlowRing.visible = false;
 }
 
 function deselectProp() {
@@ -1038,7 +1203,7 @@ function beginPropDrag(prop, clientX, clientY, pointerId) {
     prop.body.type = CANNON.Body.KINEMATIC;
     prop.body.velocity.set(0, 0, 0);
     prop.body.angularVelocity.set(0, 0, 0);
-    controls.enabled = false;
+    syncCameraControls();
     viewport.classList.add('dragging-prop');
     selectProp(prop);
     capturePointerSafe(pointerId);
@@ -1054,7 +1219,7 @@ function beginRobotDrag(clientX, clientY, pointerId) {
         robot.position.z,
         dragPlaneY,
     );
-    controls.enabled = false;
+    syncCameraControls();
     viewport.classList.add('dragging-prop');
     capturePointerSafe(pointerId);
 }
@@ -1062,7 +1227,13 @@ function beginRobotDrag(clientX, clientY, pointerId) {
 function endPropDrag(clientX, clientY, snapGrid = true) {
     if (!dragProp) return;
     movePropOnPlane(dragProp, clientX, clientY, snapGrid);
-    dragProp.body.type = CANNON.Body.DYNAMIC;
+    if (dragProp.isStageCone) {
+        dragProp.body.type = CANNON.Body.STATIC;
+        dragProp.body.mass = 0;
+        dragProp.body.updateMassProperties();
+    } else {
+        dragProp.body.type = CANNON.Body.DYNAMIC;
+    }
     dragProp.body.velocity.set(0, 0, 0);
     dragProp.body.angularVelocity.set(0, 0, 0);
     addLog(t('logObjectMoved', {
@@ -1072,8 +1243,9 @@ function endPropDrag(clientX, clientY, snapGrid = true) {
     }));
     dragProp = null;
     dragGrabOffset = null;
-    controls.enabled = true;
+    isDraggingProp = 0;
     viewport.classList.remove('dragging-prop');
+    syncCameraControls();
 }
 
 function endRobotDrag(clientX, clientY, snapGrid = true) {
@@ -1082,8 +1254,8 @@ function endRobotDrag(clientX, clientY, snapGrid = true) {
     syncRobotPhysicsBody();
     isDraggingRobot = 0;
     dragGrabOffset = null;
-    controls.enabled = true;
     viewport.classList.remove('dragging-prop');
+    syncCameraControls();
 }
 
 function movePropOnPlane(prop, clientX, clientY, snapGrid = false) {
@@ -1098,7 +1270,7 @@ function movePropOnPlane(prop, clientX, clientY, snapGrid = false) {
         z = Math.round(z * 2) / 2;
     }
     const clamped = clampToArena(x, z);
-    const y = prop.mesh.position.y;
+    const y = prop.isStageCone ? CONE_HALF_H : prop.mesh.position.y;
 
     prop.mesh.position.set(clamped.x, y, clamped.z);
     prop.body.position.set(clamped.x, y, clamped.z);
@@ -1126,14 +1298,14 @@ function movePropToScreen(prop, clientX, clientY) {
 }
 
 function updateMoveHandle(time) {
-    if (!selectedProp && !dragProp) {
+    if (animating || (!selectedProp && !dragProp)) {
         moveHandle.visible = false;
         return;
     }
     const prop = dragProp || selectedProp;
     moveHandle.visible = true;
     prop.mesh.getWorldPosition(moveHandle.position);
-    moveHandle.position.y += PROP_HALF_HEIGHT[prop.type] + 0.85 + Math.sin(time * 5) * 0.1;
+    moveHandle.position.y += propHalfHeight(prop) + 0.85 + Math.sin(time * 5) * 0.1;
     moveHandle.rotation.y = time * 2.2;
 }
 
@@ -1170,13 +1342,20 @@ function placeObjectAtScreen(clientX, clientY, objectType) {
     pointerToNdc(clientX, clientY);
     raycaster.setFromCamera(mouse, camera);
 
-    const mass = parseFloat(document.getElementById('objectMass').value);
+    const massEl = document.getElementById('objectMass');
+    const scaleEl = document.getElementById('objectScale');
+    const mass = Number.isFinite(parseFloat(massEl?.value))
+        ? parseFloat(massEl.value)
+        : DEFAULT_PROP_MASS;
+    const scale = Number.isFinite(parseFloat(scaleEl?.value))
+        ? parseFloat(scaleEl.value)
+        : DEFAULT_PROP_SCALE;
     const placementTargets = [plane, ...physicsProps.map((p) => p.mesh), ...obstacles];
     const hits = raycaster.intersectObjects(placementTargets, false);
     if (hits.length === 0) return false;
 
     const hit = hits[0];
-    const halfH = PROP_HALF_HEIGHT[objectType];
+    const halfH = PROP_HALF_HEIGHT[objectType] * scale;
     const rawX = Math.round(hit.point.x * 2) / 2;
     const rawZ = Math.round(hit.point.z * 2) / 2;
     const clamped = clampToArena(rawX, rawZ);
@@ -1184,7 +1363,8 @@ function placeObjectAtScreen(clientX, clientY, objectType) {
     const z = clamped.z;
     const y = hit.point.y + halfH + 0.02;
 
-    createPhysicsProp(objectType, x, y, z, mass);
+    const entry = createPhysicsProp(objectType, x, y, z, mass, scale);
+    selectProp(entry);
     addLog(t('logObjectPlaced', {
         type: propTypeLabel(objectType),
         mass: mass.toFixed(1),
@@ -1304,9 +1484,9 @@ function resetGestureState() {
     isDraggingRobot = 0;
     activePointerId = null;
     dragGrabOffset = null;
-    controls.enabled = true;
     interactionCanvas().style.cursor = '';
     viewport.classList.remove('dragging-prop');
+    syncCameraControls();
 }
 
 function onPointerDown(e) {
@@ -1321,14 +1501,13 @@ function onPointerDown(e) {
             gestureTarget = 'prop';
             gestureProp = prop;
             selectProp(prop);
-            controls.enabled = false;
             e.preventDefault();
             e.stopPropagation();
         } else {
             gestureTarget = 'floor';
             gestureProp = null;
-            controls.enabled = true;
         }
+        syncCameraControls();
         return;
     }
 
@@ -1339,18 +1518,15 @@ function onPointerDown(e) {
     if (pick.type === 'prop') {
         selectProp(pick.prop);
         setRobotSelected(0);
-        controls.enabled = false;
         e.preventDefault();
         e.stopPropagation();
     } else if (pick.type === 'robot') {
         deselectProp();
         setRobotSelected(1);
-        controls.enabled = false;
         e.preventDefault();
         e.stopPropagation();
-    } else if (pick.type === 'floor') {
-        controls.enabled = true;
     }
+    syncCameraControls();
 }
 
 function onPointerMove(e) {
@@ -1879,6 +2055,7 @@ function sensorListLabel() {
     if (sensorConfig.lidar) parts.push('LIDAR');
     if (sensorConfig.ultrasonic) parts.push('US');
     if (sensorConfig.ir) parts.push('IR×3');
+    if (sensorConfig.hitTest) parts.push('Hit');
     return parts.join(', ');
 }
 
@@ -1902,10 +2079,10 @@ function applyMotion(v, omega, dt) {
 
     robot.rotation.y = rot1;
 
-    if (queryPose(xFull, zFull, rot1).clear) {
+    if (!poseBlocksMotion(xFull, zFull, rot1)) {
         robot.position.x = xFull;
         robot.position.z = zFull;
-    } else {
+    } else if (sensorConfig.hitTest) {
         depenetrateRobot();
     }
     clampRobotPosition();
@@ -2238,7 +2415,12 @@ document.getElementById('startBtn').addEventListener('click', () => {
         roseLeftStart: 0,
     };
     waypointsPassed = new Array(waypoints.length).fill(0);
-    setRobotSelected(0);
+    clearDraggableAuras();
+    if (moveObjectsEl) {
+        moveObjectsEl.checked = false;
+        moveObjectsMode = 0;
+    }
+    syncCameraControls();
     clock.start();
     logList.innerHTML = '';
     robotLog.length = 0;
@@ -2280,10 +2462,15 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 const clock = new THREE.Clock();
 let selectedObjectType = 'sphere';
 
-['sensorLidar', 'sensorUltrasonic', 'sensorIr'].forEach((id) => {
+['sensorLidar', 'sensorUltrasonic', 'sensorIr', 'sensorHitTest'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const keyMap = { sensorlidar: 'lidar', sensorultrasonic: 'ultrasonic', sensorir: 'ir' };
+    const keyMap = {
+        sensorlidar: 'lidar',
+        sensorultrasonic: 'ultrasonic',
+        sensorir: 'ir',
+        sensorhittest: 'hitTest',
+    };
     const key = keyMap[id.toLowerCase()];
     el.checked = sensorConfig[key] === 1;
     el.addEventListener('change', () => {
@@ -2298,8 +2485,11 @@ if (moveObjectsEl) {
         moveObjectsMode = moveObjectsEl.checked ? 1 : 0;
         if (moveObjectsMode) {
             setRobotSelected(0);
+            // Keep selection only if it is a movable prop/cone; clear robot aura.
+        } else {
             deselectProp();
         }
+        syncCameraControls();
         updateModeUi();
     });
 }
@@ -2369,10 +2559,28 @@ viewport.addEventListener('drop', (e) => {
 
 const massSlider = document.getElementById('objectMass');
 const massValueEl = document.getElementById('massValue');
+const scaleSlider = document.getElementById('objectScale');
+const scaleValueEl = document.getElementById('scaleValue');
 
-massSlider.addEventListener('input', (e) => {
-    massValueEl.textContent = parseFloat(e.target.value).toFixed(1);
-});
+if (massSlider) {
+    massSlider.value = String(DEFAULT_PROP_MASS);
+    if (massValueEl) massValueEl.textContent = DEFAULT_PROP_MASS.toFixed(1);
+    massSlider.addEventListener('input', (e) => {
+        const mass = parseFloat(e.target.value);
+        if (massValueEl) massValueEl.textContent = mass.toFixed(1);
+        if (selectedProp) setPropMass(selectedProp, mass);
+    });
+}
+
+if (scaleSlider) {
+    scaleSlider.value = String(DEFAULT_PROP_SCALE);
+    if (scaleValueEl) scaleValueEl.textContent = DEFAULT_PROP_SCALE.toFixed(2);
+    scaleSlider.addEventListener('input', (e) => {
+        const scale = parseFloat(e.target.value);
+        if (scaleValueEl) scaleValueEl.textContent = scale.toFixed(2);
+        if (selectedProp) setPropScale(selectedProp, scale);
+    });
+}
 
 document.getElementById('clearObjectsBtn').addEventListener('click', () => {
     clearPhysicsProps();
@@ -2414,9 +2622,11 @@ function animate() {
 
     if (animating && waypoints.length >= 1 && pathIndex < waypoints.length) {
         const target = waypoints[pathIndex];
-        depenetrateRobot();
+        if (sensorConfig.hitTest) depenetrateRobot();
         const reading = sensorSuite.read();
-        if (sensorSuite.isPhysicalCollision()) {
+        // Only feed footprint collision into nav when hit-test is on.
+        // Otherwise algorithms would still "avoid" while the user asked for bumps.
+        if (sensorConfig.hitTest && sensorSuite.isPhysicalCollision()) {
             reading.blocked = 1;
             reading.forwardClear = Math.min(reading.forwardClear, 0.4);
             reading.minObstacleDist = Math.min(reading.minObstacleDist, 0.4);
@@ -2442,7 +2652,7 @@ function animate() {
         if (!cmd.skip) {
             addTelemetrySample(reading, cmd);
             const motionBlocked = applyMotion(cmd.v, cmd.omega, dt);
-            navState.forceRose = motionBlocked;
+            navState.forceRose = sensorConfig.hitTest ? motionBlocked : 0;
         }
 
         if (!cmd.skip && activeAlgo === 'bug2' && navState.mode === 'BUG_FOLLOW') {

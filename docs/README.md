@@ -4,7 +4,7 @@ How the browser sim works. EN / ES.
 
 | Page | Contents |
 |------|----------|
-| [How it works](HOW_IT_WORKS.md) | UI, mission, sensors, algorithms, physics |
+| [How it works](HOW_IT_WORKS.md) | UI, mission, sensors (incl. hit test), algorithms, physics |
 | [Architecture](ARCHITECTURE.md) | Files, data flow, constants — no extra `algorithms/` folder |
 | [Custom JS](CUSTOM_JS.md) | Read-only setup + `loop()` checker |
 

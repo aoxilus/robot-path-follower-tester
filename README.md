@@ -100,6 +100,8 @@ Walkthrough: **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** (sensors, algorith
 
 - [x] Custom JS pad (copy setup → AI → check/save loop)
 - [x] Export telemetry as JSON/CSV
+- [x] Hit test toggle (avoid vs push light props)
+- [x] Prop mass / scale inspector
 - [x] GitHub README screenshot
 - [ ] GitHub Pages live demo
 

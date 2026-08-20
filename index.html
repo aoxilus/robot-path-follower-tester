@@ -17,7 +17,6 @@
             <button type="button" class="lang-btn" data-lang="es">ES</button>
           </div>
           <h1 data-i18n="title">Robot Path Follower Tester</h1>
-          <p class="future-note" data-i18n="futureNote">Future: program your own algorithms in Python or JavaScript</p>
         </header>
 
         <section class="panel-section">
@@ -35,6 +34,10 @@
             <label class="sensor-check">
               <input type="checkbox" id="sensorIr" checked>
               <span data-i18n="sensorIr">3× IR front (short range)</span>
+            </label>
+            <label class="sensor-check">
+              <input type="checkbox" id="sensorHitTest" checked>
+              <span data-i18n="sensorHitTest">Hit test (footprint avoid)</span>
             </label>
           </div>
           <p id="sensorStatus" class="sensor-status" aria-live="polite"></p>
@@ -72,7 +75,7 @@
 
       <!-- CENTRO: robot / escena 3D -->
       <main id="viewport" aria-label="3D simulation" data-drop-label="Drop here">
-        <div id="buildStamp">build 08192026 740</div>
+        <div id="buildStamp">build 08202026 1250</div>
         <div id="customPad" class="custom-pad">
           <div class="custom-pad-bar">
             <h2 data-i18n="customPadTitle">Custom JS</h2>
@@ -130,13 +133,19 @@
             <span id="massValue" class="mass-value">5.0</span>
           </label>
           <input type="range" id="objectMass" min="0.5" max="50" step="0.5" value="5">
+          <label for="objectScale" class="field-label">
+            <span data-i18n="objectScaleLabel">Scale:</span>
+            <span id="scaleValue" class="mass-value">1.00</span>
+          </label>
+          <input type="range" id="objectScale" min="0.25" max="3" step="0.05" value="1">
+          <p id="propEditHint" class="hint" data-i18n="propEditHint">Select an object to edit mass/scale, or set defaults for the next drop.</p>
           <button type="button" id="clearObjectsBtn" data-i18n="clearObjectsBtn">Clear Objects</button>
           <label class="sensor-check move-objects-toggle">
             <input type="checkbox" id="moveObjectsMode">
             <span data-i18n="moveObjectsLabel">Move objects (hold+drag)</span>
           </label>
-          <p class="hint" data-i18n="moveObjectsHint">When on: drag scene objects only. Rover and waypoints disabled.</p>
-          <p class="hint" data-i18n="objectHint">Drag from the palette to place. Uncheck move mode for rover/waypoints.</p>
+          <p class="hint" data-i18n="moveObjectsHint">When on: camera locked (no zoom/orbit). Drag cones and props only.</p>
+          <p class="hint" data-i18n="objectHint">Drag from palette to place. Click+drag props/cones to move. Scale/mass apply to selection.</p>
         </section>
 
         <section class="panel-section panel-section-grow">

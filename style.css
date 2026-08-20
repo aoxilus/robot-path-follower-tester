@@ -137,14 +137,16 @@ body {
 
 .lang-btn {
   flex: 1;
-  padding: 6px 0;
-  font-size: 0.75rem;
+  padding: 1px 0;
+  font-size: 0.55rem;
+  line-height: 1.1;
   font-weight: 700;
   background: #222;
   color: #bbb;
   border: 1px solid #444;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
+  min-height: 0;
 }
 
 .lang-btn.active {
@@ -162,14 +164,6 @@ body {
 .byline a {
   color: var(--accent);
   text-decoration: none;
-}
-
-.future-note {
-  margin: 0;
-  font-size: 0.68rem;
-  color: #666;
-  font-style: italic;
-  line-height: 1.35;
 }
 
 .field-label {

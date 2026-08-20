@@ -22,7 +22,7 @@ export function createNavSystem(ctx) {
         WP_ACCEPT_RADIUS,
     } = ctx;
 
-    const sensorConfig = { lidar: 1, ultrasonic: 1, ir: 1 };
+    const sensorConfig = { lidar: 1, ultrasonic: 1, ir: 1, hitTest: 1 };
     const OA_BR_LOOKAHEAD = 5.00;
     const OA_MARGIN_MAX = 1.50;
     const ROSE_AREA_RADIUS = 1.50;
@@ -217,8 +217,11 @@ export function createNavSystem(ctx) {
 
         isPhysicalCollision() {
             getRobotCollisionBox(this.robotBoxCache);
-            for (const obs of this.obsBoxes) {
-                if (this.robotBoxCache.intersectsBox(obs)) return true;
+            for (let i = 0; i < this.staticObstacles.length; i++) {
+                // Refresh each frame — stage cones can be repositioned in edit mode.
+                if (!this.obsBoxes[i]) this.obsBoxes[i] = new THREE.Box3();
+                this.obsBoxes[i].setFromObject(this.staticObstacles[i]);
+                if (this.robotBoxCache.intersectsBox(this.obsBoxes[i])) return true;
             }
             for (const mesh of this.dynamicObstacles) {
                 const box = new THREE.Box3().setFromObject(mesh);
@@ -391,6 +394,13 @@ export function createNavSystem(ctx) {
     }
 
     function safetyCommand(headingErr, reading, navState) {
+        // Hit-test off = blind bumper mode: no go-around / rose avoidance.
+        // Motion + physics in main.js handle hard collisions and prop pushes.
+        if (!sensorConfig.hitTest) {
+            navState.roseMode = 0;
+            navState.forceRose = 0;
+            return null;
+        }
         const step = 0.80;
         const gx = robot.position.x + Math.sin(robot.rotation.y + headingErr) * step;
         const gz = robot.position.z + Math.cos(robot.rotation.y + headingErr) * step;

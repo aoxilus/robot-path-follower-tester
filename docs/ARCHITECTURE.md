@@ -50,6 +50,9 @@ defaultCustomCommand()           // built-in fallback in nav.js
 | `IR_RANGE` | 2 | IR max (m) |
 | `MAX_SPEED` | 4 | Cap linear speed (m/s) |
 | `MAX_OMEGA` | 2.5 | Cap yaw rate (rad/s) |
+| `HEAVY_PROP_KG` | 25 | With hit test **off**, props below this mass are pushable |
+
+`sensorConfig`: `{ lidar, ultrasonic, ir, hitTest }` (each `0`/`1`). Hit test off skips `safetyCommand` / `dontbeWebon` and lets `applyMotion` overlap light props.
 
 `createNavSystem` receives `robot`, `obstacles`, `queryPose`, sensor origins, scan rays, and those constants. It returns `sensorConfig`, `sensorSuite`, `computeNavCommand`, `setCustomRunner`.
 

@@ -38,8 +38,13 @@ Toggle **EN / ES** at the top of the left panel.
 | **LIDAR** | 5 m | 360° scan (36 bins), drawn as rays |
 | **Ultrasonic** | 4 m | Front cone (−0.35, 0, +0.35 rad) |
 | **IR ×3** | 2 m | Short bumper rays L / C / R |
+| **Hit test** | hull | On: avoid/stop + go-around. Off: push light props; cones and ≥25 kg still block |
 
-Off sensors are ignored. Physical collision still uses the rover footprint (`queryPose`), not only rays.
+## Interaction
+
+- **Waypoints** — short click floor; hold+drag rover.
+- **Props** — click to select; Weight / Scale sliders edit selection (or defaults for next drop).
+- **Move objects** — camera locked; drag cones and props.
 
 ## Algorithms
 
@@ -54,12 +59,6 @@ All modes first pass a **local safety layer** (`dontbeWebon` / `safetyCommand`):
 | Potential Field | `potential_field` | Attract to waypoint, repel from hits |
 | Custom | `custom` | Your `loop()` in the JS pad — see [Custom JS](Custom-JS.md) |
 
-## Interaction modes
-
-- **Waypoints** — short click floor to add; hold+drag rover to reposition.
-- **Objects** — drag from the right palette onto the scene.
-- **Move objects** — checkbox: drag props only (rover/waypoints disabled).
-
 ## Telemetry
 
 Every ~2 s the log records pose, waypoint, command, sensors, and nearby objects.
@@ -71,6 +70,6 @@ Every ~2 s the log records pose, waypoint, command, sensors, and nearby objects.
 
 ## Physics note
 
-- **Rover** — kinematic (`applyMotion`); refuses translation that overlaps obstacles.
+- **Rover** — kinematic (`applyMotion`). Hit test on: no overlap. Hit test off: pushes light props; cones / heavy props still stop it.
 - **Dropped props** — dynamic `cannon-es` bodies the rover can push.
 - Teaching sandbox, not a validated differential-drive plant model.
