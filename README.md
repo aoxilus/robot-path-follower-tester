@@ -45,7 +45,7 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 **Layout:** left panel = settings · **center** = 3D robot scene · **right** = drag & drop objects + telemetry log.
 
 1. **Click the center scene** → set waypoints (🟢 start · 🟡 middle · 🔴 end)
-2. **Pick an algorithm** → Pure Pursuit · Bug2 · DWA · VFH · Potential Field
+2. **Pick an algorithm** → Pure Pursuit · Bug2 · DWA · VFH · Potential Field · Custom
 3. **Start Exploration** → watch the robot follow the path and dodge obstacles
 4. **Drag objects** from the right panel onto the scene → stack boxes/spheres/cylinders; the robot pushes them on contact
 
@@ -60,6 +60,7 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 | **DWA** (`dwa`) | Scores short motion candidates and picks a safe forward command |
 | **VFH** (`vfh`) | Builds a local steering choice from obstacle sectors |
 | **Potential Field** (`potential_field`) | Combines attraction to the target with repulsion from obstacles |
+| **Custom** (`custom`) | JS pad: copy the robot API, paste a `loop()` that sets `v` and `omega` |
 
 ---
 
@@ -79,19 +80,24 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 ## 📂 Project layout
 
 ```
-docs/screenshot.png   # README preview image
-index.html            # 3-column UI (settings | viewport | drag-drop)
-main.js               # scene, 4-wheel robot, UI state, telemetry
-nav.js                # sensors + 5 algorithms (pure_pursuit, bug2, dwa, vfh, potential_field)
-style.css             # full-width panel layout
+index.html              # 3-column UI + Custom JS pad
+main.js                 # scene, rover, mission, telemetry, Custom checker
+nav.js                  # sensors + algorithms
+algorithms/custom.js    # default Custom command
+style.css               # layout
+scripts/smoke_sim.mjs   # smoke test
+docs/HOW_IT_WORKS.md    # how the sim works
+docs/screenshot.png     # README preview
 ```
+
+Full walkthrough: **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** (sensors, algorithms, Custom pad, telemetry, physics).
 
 ---
 
 ## 🚀 Roadmap
 
-- [ ] Custom algorithm hook (JS module / Python bridge)
-- [ ] Export telemetry as JSON/CSV
+- [x] Custom JS pad (copy setup → AI → check/save loop)
+- [x] Export telemetry as JSON/CSV
 - [x] GitHub README screenshot
 - [ ] GitHub Pages live demo
 

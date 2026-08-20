@@ -6,12 +6,16 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
-tamu-helper-cli/logs/
 
-# Local only — never publish to GitHub
+# Local AI / TAMU helper — never publish to GitHub
+tamu-helper-cli/
+run-tamu-orchestrate.bat
+docs/TAMU_*.md
+docs/CRITICA_TAMU.md
+docs/DISENO_PORTABILIDAD.md
+docs/CURSOR-AGENTS.md
 .cursor/
 AGENTS.md
-docs/CURSOR-AGENTS.md
 *.local.md
 .cursorrules
 .cursorignore
