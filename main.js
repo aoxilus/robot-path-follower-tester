@@ -7,6 +7,8 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
+const BUILD_STAMP = '08192026 740';
+
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
     en: {
@@ -20,6 +22,17 @@ const translations = {
         algoDwa: 'DWA (dynamic window)',
         algoVfh: 'VFH (vector field histogram)',
         algoPotential: 'Potential Field (attract/repel)',
+        algoCustom: 'Custom (JS pad)',
+        customPadTitle: 'Custom JS',
+        customSetupLabel: 'void setup — robot API (read-only)',
+        customLoopLabel: 'loop() — assign v and omega',
+        customCheckBtn: 'Check',
+        customSaveBtn: 'Save',
+        customPadClose: 'Close',
+        customCheckOk: 'Check OK — robot vars + Math + draw',
+        customCheckFail: 'Check failed: {msg}',
+        customSaved: 'Saved',
+        customSetupCopied: 'Copied',
         sectionSensors: 'Sensors',
         sensorHint: 'Enable sensors — algorithms use what is active',
         sensorLidar: 'LIDAR (360° scan, 5 m)',
@@ -30,15 +43,20 @@ const translations = {
         arenaHint: 'Arena 30×30 m · robot 2×3 m · waypoints snap to grid',
         startBtn: 'Start Mission',
         resetBtn: 'Reset',
-        waypointHint: 'Click the floor to set waypoints (Green start, Yellow via, Red end). Robot passes within 1.5 m like ArduCopter.',
-        pathFlowHint: 'Glow line shows your path — click the floor (short click, don\'t drag the camera)',
+        waypointHint: 'Floor: drag = rotate/zoom camera · short click = add waypoint. Rover/objects: click+hold+drag to move.',
+        pathFlowHint: 'Green glow = rover start · cyan line = path to waypoints',
         modeSetWaypoints: 'Current Mode: Set Waypoints',
         waypointsSet: 'Waypoints Set: {count}',
         telemetryLog: 'Telemetry Log',
-        alertNeedWaypoints: 'Please set at least two waypoints first (start and end)!',
+        copyLogBtn: 'Copy',
+        exportTelemetryJson: 'Export JSON',
+        exportTelemetryCsv: 'Export CSV',
+        logCopied: 'Copied',
+        alertNeedWaypoints: 'Place at least one waypoint on the floor (rover position = start).',
         logInit: 'INIT: {algo} · {sensors} · {count} waypoints · accept radius {radius}m',
         logPassed: 'PASSED: Waypoint {index} (within {dist}m)',
-        logDone: 'DONE: Mission complete. Passed {passed}/{total} waypoints.',
+        logSkipped: 'SKIPPED: Waypoint {index} unreachable (purple) — continuing',
+        logDone: 'DONE: Mission complete. Passed {passed}/{total} · skipped {skipped}',
         logAvoid: 'AVOID: Obstacle at {dist}m — {action}',
         logBug2: 'BUG2: Following boundary ({side})',
         logDwa: 'DWA: v={v} ω={w}',
@@ -47,6 +65,7 @@ const translations = {
         algoNameDwa: 'DWA',
         algoNameVfh: 'VFH',
         algoNamePotential: 'Potential Field',
+        algoNameCustom: 'Custom (JS hook)',
         interactionModeLabel: 'Interaction Mode:',
         modeWaypoints: 'Set Waypoints',
         modeObjects: 'Place Physics Objects',
@@ -56,8 +75,12 @@ const translations = {
         objCylinder: 'Cylinder',
         objectMassLabel: 'Weight (kg):',
         clearObjectsBtn: 'Clear Objects',
-        objectHint: 'Drag from the palette to place objects. Click a scene object to select it, then drag to move.',
-        objectMoveHint: 'Selected — drag to reposition on the floor',
+        moveObjectsLabel: 'Move objects (hold+drag)',
+        moveObjectsHint: 'When on: drag scene objects only. Rover and waypoints disabled.',
+        modeMoveObjects: 'Move objects mode — drag props in the scene',
+        objectHint: 'Drag from palette to place. Enable move mode to reposition objects.',
+        objectMoveHint: 'Hold and drag to move — release to drop',
+        roverSelectedHint: 'Rover selected — hold+drag to move, then short-click floor for waypoints',
         logObjectMoved: 'OBJECT: Moved {type} to [{x}, {z}]',
         modePlaceObjects: 'Current Mode: Place Objects',
         logObjectPlaced: 'OBJECT: Placed {type} ({mass} kg) at [{x}, {z}]',
@@ -81,6 +104,7 @@ const translations = {
         algoDwa: 'DWA (ventana dinámica)',
         algoVfh: 'VFH (histograma vectorial)',
         algoPotential: 'Campo potencial',
+        algoCustom: 'Custom (gancho JS)',
         sectionSensors: 'Sensores',
         sensorHint: 'Activa sensores — el algoritmo usa los disponibles',
         sensorLidar: 'LIDAR (360°, 5 m)',
@@ -91,15 +115,20 @@ const translations = {
         arenaHint: 'Arena 30×30 m · robot 2×3 m · waypoints en rejilla',
         startBtn: 'Iniciar misión',
         resetBtn: 'Reiniciar',
-        waypointHint: 'Clic en el suelo para waypoints (verde inicio, amarillo vía, rojo fin). Pasa a 1.5 m estilo ArduCopter.',
-        pathFlowHint: 'La línea brillante muestra la ruta — clic corto en el suelo (sin arrastrar la cámara)',
+        waypointHint: 'Suelo: arrastrar = girar/zoom · clic corto = waypoint. Rover/objetos: mantén clic y arrastra.',
+        pathFlowHint: 'Brillo verde = inicio del rover · línea cyan = ruta a waypoints',
         modeSetWaypoints: 'Modo actual: Colocar waypoints',
         waypointsSet: 'Waypoints colocados: {count}',
         telemetryLog: 'Registro de Telemetría',
-        alertNeedWaypoints: '¡Coloca al menos dos waypoints primero (inicio y fin)!',
+        copyLogBtn: 'Copiar',
+        exportTelemetryJson: 'Exportar JSON',
+        exportTelemetryCsv: 'Exportar CSV',
+        logCopied: 'Copiado',
+        alertNeedWaypoints: 'Coloca al menos un waypoint en el suelo (posición del rover = inicio).',
         logInit: 'INICIO: {algo} · {sensors} · {count} waypoints · radio {radius}m',
         logPassed: 'PASADO: Waypoint {index} (a {dist}m)',
-        logDone: 'FIN: Misión completa. Pasados {passed}/{total} waypoints.',
+        logSkipped: 'OMITIDO: Waypoint {index} inalcanzable (morado) — continúa',
+        logDone: 'FIN: Misión completa. Pasados {passed}/{total} · omitidos {skipped}',
         logAvoid: 'EVITAR: Obstáculo a {dist}m — {action}',
         logBug2: 'BUG2: Siguiendo contorno ({side})',
         logDwa: 'DWA: v={v} ω={w}',
@@ -108,6 +137,7 @@ const translations = {
         algoNameDwa: 'DWA',
         algoNameVfh: 'VFH',
         algoNamePotential: 'Campo Potencial',
+        algoNameCustom: 'Custom (gancho JS)',
         interactionModeLabel: 'Modo de interacción:',
         modeWaypoints: 'Colocar waypoints',
         modeObjects: 'Colocar objetos físicos',
@@ -117,8 +147,12 @@ const translations = {
         objCylinder: 'Cilindro',
         objectMassLabel: 'Peso (kg):',
         clearObjectsBtn: 'Quitar objetos',
-        objectHint: 'Arrastra del panel para colocar. Clic en un objeto del escenario para seleccionarlo y arrástralo para moverlo.',
-        objectMoveHint: 'Seleccionado — arrastra para reposicionar en el suelo',
+        moveObjectsLabel: 'Mover objetos (mantén+arrastra)',
+        moveObjectsHint: 'Activo: solo arrastrar objetos. Rover y waypoints desactivados.',
+        modeMoveObjects: 'Modo mover objetos — arrastra props en escena',
+        objectHint: 'Arrastra del panel para colocar. Activa mover para reposicionar objetos.',
+        objectMoveHint: 'Mantén y arrastra — suelta para soltar',
+        roverSelectedHint: 'Rover seleccionado — mantén+arrastra para mover, luego clic corto en suelo para waypoints',
         logObjectMoved: 'OBJETO: {type} movido a [{x}, {z}]',
         modePlaceObjects: 'Modo actual: Colocar objetos',
         logObjectPlaced: 'OBJETO: {type} ({mass} kg) en [{x}, {z}]',
@@ -151,6 +185,7 @@ function algoDisplayName(algo) {
         dwa: t('algoNameDwa'),
         vfh: t('algoNameVfh'),
         potential_field: t('algoNamePotential'),
+        custom: t('algoNameCustom'),
     };
     return names[algo] ?? algo;
 }
@@ -267,7 +302,7 @@ const PLANE_SIZE = 30;
 const PLANE_HALF = PLANE_SIZE / 2;
 const BUILD_MARGIN = 1.5; // keep props/obstacles inside playable area
 const BUILD_LIMIT = PLANE_HALF - BUILD_MARGIN;
-const WP_ACCEPT_RADIUS = 1.5; // ArduCopter-style — pass within radius, don't stop
+const WP_ACCEPT_RADIUS = 1.5;
 
 const planeGeo = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE);
 const planeMat = new THREE.MeshStandardMaterial({ 
@@ -397,6 +432,10 @@ physicsWorld.addContactMaterial(new CANNON.ContactMaterial(robotMaterial, propMa
     friction: 0.35,
     restitution: 0.15,
 }));
+physicsWorld.addContactMaterial(new CANNON.ContactMaterial(robotMaterial, groundMaterial, {
+    friction: 0.40,
+    restitution: 0,
+}));
 
 const groundBody = new CANNON.Body({ mass: 0, material: groundMaterial });
 groundBody.addShape(new CANNON.Plane());
@@ -424,7 +463,7 @@ const robotBody = new CANNON.Body({
 });
 robotBody.addShape(
     new CANNON.Box(new CANNON.Vec3(
-        ROBOT_COLLISION.halfWidth,
+        1.20,
         ROBOT_COLLISION.halfHeight,
         ROBOT_COLLISION.halfLength,
     )),
@@ -520,19 +559,159 @@ function stepPhysics(dt) {
     });
 }
 
+const HIT_PIXELS = 5;
+let lastHitTest = { clear: 1, object: null };
+
+function hitInsetMeters() {
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (rect.width < 2) return 0.08;
+    const origin = new THREE.Vector3(robot.position.x, 0.50, robot.position.z);
+    origin.project(camera);
+    const ndc = (HIT_PIXELS * 2) / rect.width;
+    const shifted = origin.clone();
+    shifted.x += ndc;
+    shifted.unproject(camera);
+    origin.unproject(camera);
+    const meters = Math.hypot(shifted.x - origin.x, shifted.z - origin.z);
+    if (meters < 0.04) return 0.04;
+    if (meters > 0.25) return 0.25;
+    return meters;
+}
+
+function roverFootprintCorners(x, z, rotY, inset) {
+    const hw = 1.20 - inset;
+    const hl = ROBOT_COLLISION.halfLength - inset;
+    const rightX = Math.cos(rotY);
+    const rightZ = -Math.sin(rotY);
+    const fwdX = Math.sin(rotY);
+    const fwdZ = Math.cos(rotY);
+    const sx = [1, 1, -1, -1];
+    const sz = [1, -1, -1, 1];
+    const corners = [];
+    for (let i = 0; i < 4; i++) {
+        corners.push({
+            x: x + rightX * hw * sx[i] + fwdX * hl * sz[i],
+            z: z + rightZ * hw * sx[i] + fwdZ * hl * sz[i],
+        });
+    }
+    return corners;
+}
+
+function boxCorners2d(box) {
+    return [
+        { x: box.min.x, z: box.min.z },
+        { x: box.max.x, z: box.min.z },
+        { x: box.max.x, z: box.max.z },
+        { x: box.min.x, z: box.max.z },
+    ];
+}
+
+function projectSpan(corners, ax, az) {
+    let min = Infinity;
+    let max = -Infinity;
+    for (let i = 0; i < corners.length; i++) {
+        const p = corners[i].x * ax + corners[i].z * az;
+        if (p < min) min = p;
+        if (p > max) max = p;
+    }
+    return { min, max };
+}
+
+function polygonsOverlap(a, b) {
+    const axes = [
+        { x: a[1].x - a[0].x, z: a[1].z - a[0].z },
+        { x: a[3].x - a[0].x, z: a[3].z - a[0].z },
+        { x: b[1].x - b[0].x, z: b[1].z - b[0].z },
+        { x: b[3].x - b[0].x, z: b[3].z - b[0].z },
+    ];
+    for (let i = 0; i < axes.length; i++) {
+        const len = Math.hypot(axes[i].x, axes[i].z) || 1;
+        const ax = axes[i].x / len;
+        const az = axes[i].z / len;
+        const pa = projectSpan(a, ax, az);
+        const pb = projectSpan(b, ax, az);
+        if (pa.max < pb.min || pb.max < pa.min) return 0;
+    }
+    return 1;
+}
+
 function getRobotCollisionBox(target = new THREE.Box3()) {
-    // Axis-aligned box on the yellow body — matches what the user sees
-    const center = new THREE.Vector3();
-    robotCollider.getWorldPosition(center);
-    target.setFromCenterAndSize(
-        center,
-        new THREE.Vector3(
-            ROBOT_COLLISION.halfWidth * 2,
-            ROBOT_COLLISION.halfHeight * 2,
-            ROBOT_COLLISION.halfLength * 2,
-        ),
-    );
+    const inset = hitInsetMeters();
+    const c = roverFootprintCorners(robot.position.x, robot.position.z, robot.rotation.y, inset);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < c.length; i++) {
+        if (c[i].x < minX) minX = c[i].x;
+        if (c[i].x > maxX) maxX = c[i].x;
+        if (c[i].z < minZ) minZ = c[i].z;
+        if (c[i].z > maxZ) maxZ = c[i].z;
+    }
+    target.min.set(minX, 0, minZ);
+    target.max.set(maxX, ROBOT_COLLISION.centerY + ROBOT_COLLISION.halfHeight, maxZ);
     return target;
+}
+
+function queryPose(x, z, rotY) {
+    const inset = hitInsetMeters();
+    const rover = roverFootprintCorners(x, z, rotY, inset);
+    const box = new THREE.Box3();
+
+    for (let i = 0; i < obstacles.length; i++) {
+        box.setFromObject(obstacles[i]);
+        if (polygonsOverlap(rover, boxCorners2d(box))) {
+            lastHitTest = {
+                clear: 0,
+                kind: 'cone',
+                id: i,
+                x: Number(obstacles[i].position.x.toFixed(2)),
+                z: Number(obstacles[i].position.z.toFixed(2)),
+            };
+            return lastHitTest;
+        }
+    }
+    for (let i = 0; i < physicsProps.length; i++) {
+        const prop = physicsProps[i];
+        box.setFromObject(prop.mesh);
+        if (polygonsOverlap(rover, boxCorners2d(box))) {
+            lastHitTest = {
+                clear: 0,
+                kind: prop.type,
+                id: i,
+                x: Number(prop.mesh.position.x.toFixed(2)),
+                z: Number(prop.mesh.position.z.toFixed(2)),
+            };
+            return lastHitTest;
+        }
+    }
+    lastHitTest = { clear: 1, kind: null, id: -1, x: null, z: null };
+    return lastHitTest;
+}
+
+function robotIntersectsObstaclesAt(x, z, rotY) {
+    return queryPose(x, z, rotY).clear === 0;
+}
+
+function depenetrateRobot() {
+    const hit = queryPose(robot.position.x, robot.position.z, robot.rotation.y);
+    if (hit.clear) return 0;
+    const step = hitInsetMeters();
+    const dx = robot.position.x - (hit.x ?? robot.position.x);
+    const dz = robot.position.z - (hit.z ?? robot.position.z);
+    const mag = Math.hypot(dx, dz) || 1;
+    for (let n = 1; n <= 8; n++) {
+        const nx = robot.position.x + (dx / mag) * step * n;
+        const nz = robot.position.z + (dz / mag) * step * n;
+        if (queryPose(nx, nz, robot.rotation.y).clear) {
+            robot.position.x = nx;
+            robot.position.z = nz;
+            clampRobotPosition();
+            syncRobotPhysicsBody();
+            return 1;
+        }
+    }
+    return 1;
 }
 
 function getRobotSensorOrigin(target = new THREE.Vector3()) {
@@ -564,34 +743,48 @@ function applyRobotPushImpulse(dt) {
     });
 }
 
-// 📡 Radar arcs — pulsing sensor rings on the robot front (visual only, not in hit tests)
+// 📡 Sensor drawing — LIDAR on top, IR bumper rectangle, ultrasonic conoid
 const radarGroup = new THREE.Group();
 radarGroup.userData.sensorVisual = true;
 robot.add(radarGroup);
-radarGroup.position.set(0, -carHeight/2 + 0.1, 1); // Front of robot
+radarGroup.position.set(0, 0.08, 0);
 const radarArcs = [];
-for (let i = 0; i < 3; i++) {
-    // 120 degree arc
-    const geo = new THREE.RingGeometry(0.9, 1.0, 32, 1, 0, Math.PI * 2 / 3); 
-    const mat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, transparent: true, opacity: 0, side: THREE.DoubleSide });
-    const arc = new THREE.Mesh(geo, mat);
-    arc.rotation.x = -Math.PI / 2;
-    arc.rotation.z = -Math.PI / 3; // Center the arc forward
-    arc.userData.time = i * 0.4;
-    radarGroup.add(arc);
-    radarArcs.push(arc);
-}
 
-// 🔦 Laser scan fan — 180° ray sweep to pick a clear sub-goal after collision
+const irBand = new THREE.Mesh(
+    new THREE.BoxGeometry(2.00, 0.04, 2.00),
+    new THREE.MeshBasicMaterial({
+        color: 0xffcc44,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+    }),
+);
+irBand.position.set(0, 0.06, 2.50);
+radarGroup.add(irBand);
+
+const usCone = new THREE.Mesh(
+    new THREE.ConeGeometry(1.40, 4.00, 24, 1, true),
+    new THREE.MeshBasicMaterial({
+        color: 0x44ddff,
+        transparent: true,
+        opacity: 0.18,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+    }),
+);
+usCone.rotation.x = Math.PI / 2;
+usCone.position.set(0, 0.20, 3.50);
+radarGroup.add(usCone);
+
 const scanLinesGroup = new THREE.Group();
 scanLinesGroup.userData.sensorVisual = true;
 robot.add(scanLinesGroup);
-scanLinesGroup.position.set(0, 0, 1.0); 
-const scanRaysCount = 13; // 13 Rays fan out during scan
+scanLinesGroup.position.set(0, 1.35, 0);
+const scanRaysCount = 13;
 const scanRays = [];
 for (let i = 0; i < scanRaysCount; i++) {
     const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)
+        new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0),
     ]);
     const mat = new THREE.LineBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0, linewidth: 2 });
     const line = new THREE.Line(geo, mat);
@@ -626,15 +819,38 @@ let waypointMarkers = [];
 let pathFlowLine = null;
 let pathGlowLine = null;
 let mode = 'waypoints';
-let animating = false;
+let animating = 0;
+let pathIndex = 0;
+let moveObjectsMode = 0;
 
-const CLICK_DRAG_THRESHOLD = 8;
+const CLICK_DRAG_THRESHOLD = 12;
 let pointerDownPos = null;
-let pointerDownProp = null;
-let isDraggingProp = false;
+let gestureTarget = null; // 'floor' | 'prop' | 'robot' | null
+let gestureProp = null;
+let isDraggingProp = 0;
+let isDraggingRobot = 0;
 let dragProp = null;
 let selectedProp = null;
+let robotSelected = 0;
 let activePointerId = null;
+let dragGrabOffset = null;
+let dragPlaneY = 0;
+
+const interactionCanvas = () => renderer.domElement;
+
+// Called synchronously inside the same pointerdown/pointerup handler that
+// owns pointerId, so the capture/release call is always valid — no
+// try/catch needed to swallow an exception that shouldn't occur here.
+function capturePointerSafe(pointerId) {
+    interactionCanvas().setPointerCapture(pointerId);
+}
+
+function releasePointerSafe(pointerId) {
+    const canvas = interactionCanvas();
+    if (canvas.hasPointerCapture(pointerId)) {
+        canvas.releasePointerCapture(pointerId);
+    }
+}
 
 // Move handle — bobs above selected / dragged object
 const moveHandle = new THREE.Group();
@@ -683,12 +899,77 @@ function findPropFromMesh(object) {
     return null;
 }
 
-function raycastPropAt(clientX, clientY) {
+function pickSceneTarget(clientX, clientY) {
     pointerToNdc(clientX, clientY);
     raycaster.setFromCamera(mouse, camera);
-    const hits = raycaster.intersectObjects(physicsProps.map((p) => p.mesh), false);
-    if (!hits.length) return null;
-    return findPropFromMesh(hits[0].object);
+
+    if (physicsProps.length > 0) {
+        const propHits = raycaster.intersectObjects(physicsProps.map((p) => p.mesh), false);
+        if (propHits.length > 0) {
+            return {
+                type: 'prop',
+                prop: findPropFromMesh(propHits[0].object),
+                point: propHits[0].point,
+            };
+        }
+    }
+
+    if (!moveObjectsMode) {
+        const robotHits = raycaster.intersectObject(robot, true);
+        if (robotHits.length > 0) {
+            return { type: 'robot', point: robotHits[0].point };
+        }
+    }
+
+    const floorHits = raycaster.intersectObject(plane, false);
+    if (floorHits.length > 0) {
+        return { type: 'floor', point: floorHits[0].point };
+    }
+
+    return { type: 'none' };
+}
+
+function raycastWaypointHit(clientX, clientY) {
+    pointerToNdc(clientX, clientY);
+    raycaster.setFromCamera(mouse, camera);
+    const targets = [
+        ...physicsProps.map((p) => p.mesh),
+        ...obstacles,
+        plane,
+    ];
+    const hits = raycaster.intersectObjects(targets, false);
+    return hits.length > 0 ? hits[0] : null;
+}
+
+function raycastPropAt(clientX, clientY) {
+    const pick = pickSceneTarget(clientX, clientY);
+    return pick.type === 'prop' ? pick.prop : null;
+}
+
+function raycastRobotAt(clientX, clientY) {
+    return pickSceneTarget(clientX, clientY).type === 'robot';
+}
+
+function setRobotSelected(on) {
+    robotSelected = on;
+    if (robotSelected && mode === 'waypoints' && !animating) {
+        statusEl.textContent = t('roverSelectedHint');
+    } else if (!robotSelected) {
+        updateModeUi();
+    }
+}
+
+function raycastDragPlane(clientX, clientY, planeY, target = new THREE.Vector3()) {
+    pointerToNdc(clientX, clientY);
+    raycaster.setFromCamera(mouse, camera);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY);
+    return raycaster.ray.intersectPlane(plane, target) ? target : null;
+}
+
+function computeGrabOffset(clientX, clientY, objX, objZ, planeY) {
+    const hit = raycastDragPlane(clientX, clientY, planeY);
+    if (!hit) return new THREE.Vector3();
+    return new THREE.Vector3(objX - hit.x, 0, objZ - hit.z);
 }
 
 function setPropHighlight(prop, on) {
@@ -728,19 +1009,43 @@ function deselectProp() {
     selectProp(null);
 }
 
-function beginPropDrag(prop) {
+function beginPropDrag(prop, clientX, clientY, pointerId) {
     dragProp = prop;
+    dragPlaneY = prop.mesh.position.y;
+    dragGrabOffset = computeGrabOffset(
+        clientX,
+        clientY,
+        prop.mesh.position.x,
+        prop.mesh.position.z,
+        dragPlaneY,
+    );
     prop.body.type = CANNON.Body.KINEMATIC;
     prop.body.velocity.set(0, 0, 0);
     prop.body.angularVelocity.set(0, 0, 0);
     controls.enabled = false;
     viewport.classList.add('dragging-prop');
     selectProp(prop);
+    capturePointerSafe(pointerId);
 }
 
-function endPropDrag(clientX, clientY) {
+function beginRobotDrag(clientX, clientY, pointerId) {
+    isDraggingRobot = 1;
+    dragPlaneY = robot.position.y;
+    dragGrabOffset = computeGrabOffset(
+        clientX,
+        clientY,
+        robot.position.x,
+        robot.position.z,
+        dragPlaneY,
+    );
+    controls.enabled = false;
+    viewport.classList.add('dragging-prop');
+    capturePointerSafe(pointerId);
+}
+
+function endPropDrag(clientX, clientY, snapGrid = true) {
     if (!dragProp) return;
-    movePropToScreen(dragProp, clientX, clientY);
+    movePropOnPlane(dragProp, clientX, clientY, snapGrid);
     dragProp.body.type = CANNON.Body.DYNAMIC;
     dragProp.body.velocity.set(0, 0, 0);
     dragProp.body.angularVelocity.set(0, 0, 0);
@@ -750,29 +1055,58 @@ function endPropDrag(clientX, clientY) {
         z: dragProp.mesh.position.z.toFixed(1),
     }));
     dragProp = null;
+    dragGrabOffset = null;
     controls.enabled = true;
     viewport.classList.remove('dragging-prop');
 }
 
-function movePropToScreen(prop, clientX, clientY) {
-    pointerToNdc(clientX, clientY);
-    raycaster.setFromCamera(mouse, camera);
-    const others = physicsProps.filter((p) => p !== prop).map((p) => p.mesh);
-    const hits = raycaster.intersectObjects([plane, ...others, ...obstacles], false);
-    if (!hits.length) return;
+function endRobotDrag(clientX, clientY, snapGrid = true) {
+    if (!isDraggingRobot) return;
+    moveRobotOnPlane(clientX, clientY, snapGrid);
+    syncRobotPhysicsBody();
+    isDraggingRobot = 0;
+    dragGrabOffset = null;
+    controls.enabled = true;
+    viewport.classList.remove('dragging-prop');
+}
 
-    const hit = hits[0];
-    const halfH = PROP_HALF_HEIGHT[prop.type];
-    const clamped = clampToArena(
-        Math.round(hit.point.x * 2) / 2,
-        Math.round(hit.point.z * 2) / 2,
-    );
-    const y = hit.point.y + halfH + 0.02;
+function movePropOnPlane(prop, clientX, clientY, snapGrid = false) {
+    const hit = raycastDragPlane(clientX, clientY, dragPlaneY);
+    if (!hit) return;
+
+    const offset = dragGrabOffset || new THREE.Vector3();
+    let x = hit.x + offset.x;
+    let z = hit.z + offset.z;
+    if (snapGrid) {
+        x = Math.round(x * 2) / 2;
+        z = Math.round(z * 2) / 2;
+    }
+    const clamped = clampToArena(x, z);
+    const y = prop.mesh.position.y;
 
     prop.mesh.position.set(clamped.x, y, clamped.z);
     prop.body.position.set(clamped.x, y, clamped.z);
     prop.body.velocity.set(0, 0, 0);
     prop.body.angularVelocity.set(0, 0, 0);
+}
+
+function moveRobotOnPlane(clientX, clientY, snapGrid = false) {
+    const hit = raycastDragPlane(clientX, clientY, dragPlaneY);
+    if (!hit) return;
+
+    const offset = dragGrabOffset || new THREE.Vector3();
+    let x = hit.x + offset.x;
+    let z = hit.z + offset.z;
+    if (snapGrid) {
+        x = Math.round(x);
+        z = Math.round(z);
+    }
+    const clamped = clampToArena(x, z);
+    robot.position.set(clamped.x, robot.position.y, clamped.z);
+}
+
+function movePropToScreen(prop, clientX, clientY) {
+    movePropOnPlane(prop, clientX, clientY, false);
 }
 
 function updateMoveHandle(time) {
@@ -785,15 +1119,6 @@ function updateMoveHandle(time) {
     prop.mesh.getWorldPosition(moveHandle.position);
     moveHandle.position.y += PROP_HALF_HEIGHT[prop.type] + 0.85 + Math.sin(time * 5) * 0.1;
     moveHandle.rotation.y = time * 2.2;
-}
-
-function updatePropHoverCursor(clientX, clientY) {
-    if (isDraggingProp) {
-        viewport.style.cursor = 'grabbing';
-        return;
-    }
-    const prop = raycastPropAt(clientX, clientY);
-    viewport.style.cursor = prop ? 'grab' : '';
 }
 
 const statusEl = document.getElementById('status');
@@ -814,7 +1139,9 @@ function updateModeUi() {
     }
     if (typeof statusEl === 'undefined') return;
     if (animating) return;
-    if (mode === 'objects') {
+    if (moveObjectsMode) {
+        statusEl.textContent = t('modeMoveObjects');
+    } else if (mode === 'objects') {
         statusEl.textContent = t('modePlaceObjects');
     } else if (waypoints.length === 0) {
         statusEl.textContent = t('modeSetWaypoints');
@@ -876,9 +1203,12 @@ function disposePathLines() {
 
 function updatePathFlow() {
     disposePathLines();
-    if (waypoints.length < 2) return;
+    if (waypoints.length < 1) return;
 
-    const points = waypoints.map((wp) => new THREE.Vector3(wp.x, 0.18, wp.z));
+    const points = [
+        new THREE.Vector3(robot.position.x, 0.18, robot.position.z),
+        ...waypoints.map((wp) => new THREE.Vector3(wp.x, 0.18, wp.z)),
+    ];
 
     pathGlowLine = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(points),
@@ -902,30 +1232,37 @@ function updatePathFlow() {
 }
 
 function addWaypointAtScreen(clientX, clientY) {
-    if (mode !== 'waypoints' || animating) return false;
+    if (moveObjectsMode || mode !== 'waypoints' || animating) return false;
 
-    pointerToNdc(clientX, clientY);
-    raycaster.setFromCamera(mouse, camera);
+    const hit = raycastWaypointHit(clientX, clientY);
+    if (!hit) return false;
 
-    const hits = raycaster.intersectObject(plane, false);
-    if (hits.length === 0) return false;
+    const prop = findPropFromMesh(hit.object);
+    const onObstacle = prop || obstacles.includes(hit.object);
+    let wx = hit.point.x;
+    let wz = hit.point.z;
+    let wy = 0.5;
 
-    const point = hits[0].point;
-    const clamped = clampToArena(Math.round(point.x), Math.round(point.z));
+    if (onObstacle) {
+        _obsBoxProbe.setFromObject(hit.object);
+        wy = _obsBoxProbe.max.y + 0.35;
+        wx = Math.round(wx * 2) / 2;
+        wz = Math.round(wz * 2) / 2;
+    } else {
+        wx = Math.round(wx);
+        wz = Math.round(wz);
+    }
+
+    const clamped = clampToArena(wx, wz);
 
     waypoints.push({ x: clamped.x, z: clamped.z });
     const marker = new THREE.Mesh(
         new THREE.SphereGeometry(0.32),
         new THREE.MeshBasicMaterial({ color: 0xffff00 }),
     );
-    marker.position.set(clamped.x, 0.5, clamped.z);
+    marker.position.set(clamped.x, wy, clamped.z);
     scene.add(marker);
     waypointMarkers.push(marker);
-
-    if (waypoints.length === 1) {
-        robot.position.set(clamped.x, 0, clamped.z);
-        syncRobotPhysicsBody();
-    }
 
     updateWaypointColors();
     updatePathFlow();
@@ -935,9 +1272,7 @@ function addWaypointAtScreen(clientX, clientY) {
 
 function updateWaypointColors() {
     waypointMarkers.forEach((marker, index) => {
-        if (index === 0) {
-            marker.material.color.setHex(0x00ff00);
-        } else if (index === waypointMarkers.length - 1) {
+        if (index === waypointMarkers.length - 1) {
             marker.material.color.setHex(0xff0000);
         } else {
             marker.material.color.setHex(0xffff00);
@@ -945,85 +1280,191 @@ function updateWaypointColors() {
     });
 }
 
-viewport.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    pointerDownPos = { x: e.clientX, y: e.clientY };
-    pointerDownProp = raycastPropAt(e.clientX, e.clientY);
-    activePointerId = e.pointerId;
-    if (pointerDownProp) {
-        selectProp(pointerDownProp);
-        e.preventDefault();
-    }
-});
+function resetGestureState() {
+    pointerDownPos = null;
+    gestureTarget = null;
+    gestureProp = null;
+    isDraggingProp = 0;
+    isDraggingRobot = 0;
+    activePointerId = null;
+    dragGrabOffset = null;
+    controls.enabled = true;
+    interactionCanvas().style.cursor = '';
+    viewport.classList.remove('dragging-prop');
+}
 
-viewport.addEventListener('pointermove', (e) => {
+function onPointerDown(e) {
+    if (e.button !== 0 || animating) return;
+
+    pointerDownPos = { x: e.clientX, y: e.clientY };
+    activePointerId = e.pointerId;
+
+    if (moveObjectsMode) {
+        const prop = raycastPropAt(e.clientX, e.clientY);
+        if (prop) {
+            gestureTarget = 'prop';
+            gestureProp = prop;
+            selectProp(prop);
+            controls.enabled = false;
+            e.preventDefault();
+            e.stopPropagation();
+        } else {
+            gestureTarget = 'floor';
+            gestureProp = null;
+            controls.enabled = true;
+        }
+        return;
+    }
+
+    const pick = pickSceneTarget(e.clientX, e.clientY);
+    gestureTarget = pick.type;
+    gestureProp = pick.prop ?? null;
+
+    if (pick.type === 'prop') {
+        selectProp(pick.prop);
+        setRobotSelected(0);
+        controls.enabled = false;
+        e.preventDefault();
+        e.stopPropagation();
+    } else if (pick.type === 'robot') {
+        deselectProp();
+        setRobotSelected(1);
+        controls.enabled = false;
+        e.preventDefault();
+        e.stopPropagation();
+    } else if (pick.type === 'floor') {
+        controls.enabled = true;
+    }
+}
+
+function onPointerMove(e) {
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
 
-    if (pointerDownProp && pointerDownPos && !isDraggingProp) {
+    if (gestureTarget === 'prop' && gestureProp && pointerDownPos && !isDraggingProp) {
         const dx = e.clientX - pointerDownPos.x;
         const dy = e.clientY - pointerDownPos.y;
         if (Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD) {
-            isDraggingProp = true;
-            beginPropDrag(pointerDownProp);
+            isDraggingProp = 1;
+            beginPropDrag(gestureProp, e.clientX, e.clientY, e.pointerId);
+        }
+    } else if (!moveObjectsMode && gestureTarget === 'robot' && pointerDownPos && !isDraggingRobot) {
+        const dx = e.clientX - pointerDownPos.x;
+        const dy = e.clientY - pointerDownPos.y;
+        if (Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD) {
+            beginRobotDrag(e.clientX, e.clientY, e.pointerId);
         }
     }
 
     if (isDraggingProp && dragProp) {
-        movePropToScreen(dragProp, e.clientX, e.clientY);
+        movePropOnPlane(dragProp, e.clientX, e.clientY, false);
         e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
+
+    if (isDraggingRobot) {
+        moveRobotOnPlane(e.clientX, e.clientY, false);
+        updatePathFlow();
+        e.preventDefault();
+        e.stopPropagation();
         return;
     }
 
     if (!pointerDownPos) {
-        updatePropHoverCursor(e.clientX, e.clientY);
+        updateHoverCursor(e.clientX, e.clientY);
     }
-});
+}
 
-viewport.addEventListener('pointerup', (e) => {
+function onPointerUp(e) {
     if (e.button !== 0 || e.pointerId !== activePointerId) return;
 
     const dx = pointerDownPos ? e.clientX - pointerDownPos.x : 0;
     const dy = pointerDownPos ? e.clientY - pointerDownPos.y : 0;
-    const shortClick = pointerDownPos && Math.hypot(dx, dy) <= CLICK_DRAG_THRESHOLD;
+    const wasDrag = Math.hypot(dx, dy) > CLICK_DRAG_THRESHOLD;
+    const shortClick = pointerDownPos && !wasDrag;
+
+    releasePointerSafe(e.pointerId);
 
     if (isDraggingProp) {
-        endPropDrag(e.clientX, e.clientY);
-    } else if (shortClick && !pointerDownProp && mode === 'waypoints') {
+        endPropDrag(e.clientX, e.clientY, true);
+    } else if (isDraggingRobot) {
+        endRobotDrag(e.clientX, e.clientY, true);
+        updatePathFlow();
+    } else if (shortClick && !moveObjectsMode && gestureTarget === 'floor' && mode === 'waypoints') {
         addWaypointAtScreen(e.clientX, e.clientY);
-    } else if (shortClick && !pointerDownProp && mode === 'objects') {
+    } else if (shortClick && !moveObjectsMode && gestureTarget === 'floor' && mode === 'objects') {
         deselectProp();
+        setRobotSelected(0);
+    } else if (shortClick && !moveObjectsMode && gestureTarget === 'prop') {
+        selectProp(gestureProp);
+    } else if (shortClick && !moveObjectsMode && gestureTarget === 'robot') {
+        setRobotSelected(1);
     }
 
-    pointerDownPos = null;
-    pointerDownProp = null;
-    isDraggingProp = false;
-    activePointerId = null;
-    viewport.style.cursor = '';
-});
+    resetGestureState();
+}
 
-viewport.addEventListener('pointercancel', (e) => {
-    if (isDraggingProp) endPropDrag(e.clientX, e.clientY);
-    pointerDownPos = null;
-    pointerDownProp = null;
-    isDraggingProp = false;
-    activePointerId = null;
-    controls.enabled = true;
-    viewport.classList.remove('dragging-prop');
-    viewport.style.cursor = '';
-});
+function onPointerCancel(e) {
+    releasePointerSafe(e.pointerId);
+    if (isDraggingProp) endPropDrag(e.clientX, e.clientY, true);
+    if (isDraggingRobot) {
+        endRobotDrag(e.clientX, e.clientY, true);
+        updatePathFlow();
+    }
+    dragProp = null;
+    resetGestureState();
+}
 
-renderer.domElement.style.touchAction = 'none';
+function updateHoverCursor(clientX, clientY) {
+    if (isDraggingProp || isDraggingRobot) {
+        interactionCanvas().style.cursor = 'grabbing';
+        return;
+    }
+    if (moveObjectsMode) {
+        interactionCanvas().style.cursor = raycastPropAt(clientX, clientY) ? 'grab' : '';
+        return;
+    }
+    const pick = pickSceneTarget(clientX, clientY);
+    if (pick.type === 'prop' || pick.type === 'robot') {
+        interactionCanvas().style.cursor = 'grab';
+    } else {
+        interactionCanvas().style.cursor = '';
+    }
+}
+
+interactionCanvas().addEventListener('pointerdown', onPointerDown, true);
+interactionCanvas().addEventListener('pointermove', onPointerMove);
+interactionCanvas().addEventListener('pointerup', onPointerUp);
+interactionCanvas().addEventListener('pointercancel', onPointerCancel);
+interactionCanvas().style.touchAction = 'none';
 
 // 🧠 Navigation — sensors + 5 algorithms (see nav.js)
 let activeAlgo = 'pure_pursuit';
-let navState = { mode: 'IDLE', bugSide: 1, bugStartDist: 0, lastLogAt: 0 };
+let navState = {
+    mode: 'IDLE',
+    bugSide: 1,
+    bugStartDist: 0,
+    lastLogAt: 0,
+    roseMode: 0,
+    roseSide: 1,
+    roseStartX: 0,
+    roseStartZ: 0,
+    roseLastX: 0,
+    roseLastZ: 0,
+    roseDistance: 0,
+    forceRose: 0,
+    roseCircuits: 0,
+    roseLeftStart: 0,
+};
 let waypointsPassed = [];
+let missionStart = { x: 0, z: 0 };
 
 const nav = createNavSystem({
     robot,
     obstacles,
     getRobotCollisionBox,
     getRobotSensorOrigin,
+    queryPose,
     scanRays,
     scanRaysCount,
     ROBOT_COLLISION,
@@ -1060,11 +1501,26 @@ function updateSensorStatus() {
 }
 
 function applyMotion(v, omega, dt) {
-    robot.rotation.y += omega * dt;
-    const forward = new THREE.Vector3(0, 0, 1)
-        .applyMatrix4(new THREE.Matrix4().extractRotation(robot.matrixWorld));
-    robot.position.add(forward.multiplyScalar(v * dt));
+    const rot0 = robot.rotation.y;
+    const rot1 = rot0 + omega * dt;
+    const x0 = robot.position.x;
+    const z0 = robot.position.z;
+    const fwdX = Math.sin(rot1);
+    const fwdZ = Math.cos(rot1);
+    const xFull = x0 + fwdX * v * dt;
+    const zFull = z0 + fwdZ * v * dt;
+
+    robot.rotation.y = rot1;
+
+    if (queryPose(xFull, zFull, rot1).clear) {
+        robot.position.x = xFull;
+        robot.position.z = zFull;
+    } else {
+        depenetrateRobot();
+    }
     clampRobotPosition();
+    syncRobotPhysicsBody();
+
     const wheelSpin = v * dt * 2;
     if (Math.abs(omega) > 0.01) {
         wheels[0].rotation.x -= wheelSpin;
@@ -1074,10 +1530,47 @@ function applyMotion(v, omega, dt) {
     } else {
         wheels.forEach((w) => { w.rotation.x -= wheelSpin; });
     }
+
+    const requestedDistance = Math.abs(v * dt);
+    const actualDistance = Math.hypot(robot.position.x - x0, robot.position.z - z0);
+    if (requestedDistance > 0.01 && actualDistance < requestedDistance * 0.10) return 1;
+    return 0;
 }
 
 function distToGoal(target) {
     return Math.hypot(target.x - robot.position.x, target.z - robot.position.z);
+}
+
+function resetNavForWaypoint() {
+    navState.mode = 'TRACK';
+    navState.bugStartDist = 0;
+    navState.roseMode = 0;
+    navState.roseDistance = 0;
+    navState.roseStartX = robot.position.x;
+    navState.roseStartZ = robot.position.z;
+    navState.roseLastX = robot.position.x;
+    navState.roseLastZ = robot.position.z;
+    navState.forceRose = 0;
+    navState.roseCircuits = 0;
+    navState.roseLeftStart = 0;
+}
+
+function skipUnreachableWaypoint() {
+    const idx = pathIndex;
+    if (waypointMarkers[idx]) {
+        waypointMarkers[idx].material.color.setHex(0xaa44ff);
+    }
+    waypointsPassed[idx] = 'skipped';
+    addLog(t('logSkipped', { index: idx }));
+    pathIndex++;
+    resetNavForWaypoint();
+    if (pathIndex >= waypoints.length) {
+        animating = 0;
+        navState.mode = 'IDLE';
+        const passed = waypointsPassed.filter((v) => v === 1).length;
+        const skipped = waypointsPassed.filter((v) => v === 'skipped').length;
+        addLog(t('logDone', { passed, skipped, total: waypoints.length }));
+    }
 }
 
 function checkWaypointMission() {
@@ -1086,18 +1579,20 @@ function checkWaypointMission() {
     const dist = distToGoal(target);
     if (dist <= WP_ACCEPT_RADIUS) {
         if (!waypointsPassed[pathIndex]) {
-            waypointsPassed[pathIndex] = true;
-            addLog(t('logPassed', { index: pathIndex, dist: dist.toFixed(1) }));
+            waypointsPassed[pathIndex] = 1;
+            addLog(t('logPassed', { index: pathIndex, dist: dist.toFixed(2) }));
             if (waypointMarkers[pathIndex]) {
                 waypointMarkers[pathIndex].material.color.setHex(0x00ffcc);
             }
         }
         pathIndex++;
+        resetNavForWaypoint();
         if (pathIndex >= waypoints.length) {
-            animating = false;
+            animating = 0;
             navState.mode = 'IDLE';
-            const passed = waypointsPassed.filter(Boolean).length;
-            addLog(t('logDone', { passed, total: waypoints.length }));
+            const passed = waypointsPassed.filter((v) => v === 1).length;
+            const skipped = waypointsPassed.filter((v) => v === 'skipped').length;
+            addLog(t('logDone', { passed, skipped, total: waypoints.length }));
             return false;
         }
     }
@@ -1106,7 +1601,49 @@ function checkWaypointMission() {
 
 // 📋 Telemetry log
 const robotLog = [];
+const missionTelemetry = [];
+let lastTelemetryAt = -2.00;
+window.missionTelemetry = missionTelemetry;
 const logList = document.getElementById('logList');
+
+function collectTelemetryObjects() {
+    const list = [];
+    for (let i = 0; i < obstacles.length; i++) {
+        list.push({
+            kind: 'cone',
+            id: i,
+            x: telemetryNumber(obstacles[i].position.x),
+            z: telemetryNumber(obstacles[i].position.z),
+            blocking: lastHitTest.clear === 0 && lastHitTest.kind === 'cone' && lastHitTest.id === i ? 1 : 0,
+        });
+    }
+    for (let i = 0; i < physicsProps.length; i++) {
+        const p = physicsProps[i];
+        list.push({
+            kind: p.type,
+            id: i,
+            x: telemetryNumber(p.mesh.position.x),
+            z: telemetryNumber(p.mesh.position.z),
+            blocking: lastHitTest.clear === 0 && lastHitTest.kind === p.type && lastHitTest.id === i ? 1 : 0,
+        });
+    }
+    return list;
+}
+
+function telemetryNumber(value) {
+    if (!Number.isFinite(value)) return null;
+    return Number(value.toFixed(2));
+}
+
+function telemetryDistances(values) {
+    if (!values) return [];
+    const out = [];
+    for (let i = 0; i < values.length; i++) {
+        out.push(telemetryNumber(values[i]));
+    }
+    return out;
+}
+
 function addLog(message) {
     const time = clock.getElapsedTime().toFixed(1);
     const pos = `[${robot.position.x.toFixed(1)}, ${robot.position.z.toFixed(1)}]`;
@@ -1116,30 +1653,214 @@ function addLog(message) {
     const li = document.createElement('li');
     li.innerText = fullMessage;
     logList.appendChild(li);
-    logList.parentElement.scrollTop = logList.parentElement.scrollHeight;
+    if (logList) logList.scrollTop = logList.scrollHeight;
     console.log(`[ROBOT LOG] ${fullMessage}`);
+}
+
+function flashCopyBtn() {
+    const btn = document.getElementById('copyLogBtn');
+    if (!btn) return;
+    btn.textContent = t('logCopied');
+    window.setTimeout(() => {
+        btn.textContent = t('copyLogBtn');
+    }, 1500);
+}
+
+function copyTelemetryLog() {
+    const lines = [];
+    for (let i = 0; i < robotLog.length; i++) {
+        const row = robotLog[i];
+        lines.push(row.time + 's ' + row.pos + ': ' + row.message);
+    }
+    const text = lines.join('\n');
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(flashCopyBtn);
+    }
+}
+
+const TELEMETRY_CSV_HEADER = 't,algorithm,wp_index,wp_x,wp_z,wp_distance,robot_x,robot_z,heading,v,omega,blocked,forwardClear,nearest';
+
+function telemetryRows() {
+    if (Array.isArray(window.missionTelemetry)) return window.missionTelemetry;
+    return missionTelemetry;
+}
+
+function csvCell(value) {
+    if (value === null || typeof value === 'undefined') return '';
+    const text = String(value);
+    if (text.includes('"') || text.includes(',') || text.includes('\n')) {
+        return '"' + text.replaceAll('"', '""') + '"';
+    }
+    return text;
+}
+
+function telemetryCsvRow(sample) {
+    const cells = [
+        sample?.t,
+        sample?.algorithm,
+        sample?.waypoint?.index,
+        sample?.waypoint?.x,
+        sample?.waypoint?.z,
+        sample?.waypoint?.distance,
+        sample?.robot?.x,
+        sample?.robot?.z,
+        sample?.robot?.heading,
+        sample?.command?.v,
+        sample?.command?.omega,
+        sample?.sensors?.blocked,
+        sample?.sensors?.forwardClear,
+        sample?.sensors?.nearest,
+    ];
+    const out = [];
+    for (let i = 0; i < cells.length; i++) {
+        out.push(csvCell(cells[i]));
+    }
+    return out.join(',');
+}
+
+function downloadTelemetryFile(filename, mimeType, content) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function exportTelemetryJson() {
+    downloadTelemetryFile(
+        'robot-telemetry.json',
+        'application/json;charset=utf-8',
+        JSON.stringify(telemetryRows(), null, 2),
+    );
+}
+
+function exportTelemetryCsv() {
+    const rows = telemetryRows();
+    const lines = [TELEMETRY_CSV_HEADER];
+    for (let i = 0; i < rows.length; i++) {
+        lines.push(telemetryCsvRow(rows[i]));
+    }
+    downloadTelemetryFile(
+        'robot-telemetry.csv',
+        'text/csv;charset=utf-8',
+        lines.join('\n'),
+    );
+}
+
+const copyLogBtn = document.getElementById('copyLogBtn');
+if (copyLogBtn) copyLogBtn.addEventListener('click', copyTelemetryLog);
+const exportTelemetryJsonBtn = document.getElementById('exportTelemetryJson');
+if (exportTelemetryJsonBtn) exportTelemetryJsonBtn.addEventListener('click', exportTelemetryJson);
+const exportTelemetryCsvBtn = document.getElementById('exportTelemetryCsv');
+if (exportTelemetryCsvBtn) exportTelemetryCsvBtn.addEventListener('click', exportTelemetryCsv);
+
+function addTelemetrySample(reading, cmd) {
+    const now = clock.getElapsedTime();
+    if (now - lastTelemetryAt < 2.00) return;
+    if (pathIndex >= waypoints.length) return;
+
+    const waypoint = waypoints[pathIndex];
+    const sample = {
+        type: 'telemetry',
+        t: telemetryNumber(now),
+        algorithm: activeAlgo,
+        waypoint: {
+            index: pathIndex,
+            x: telemetryNumber(waypoint.x),
+            z: telemetryNumber(waypoint.z),
+            distance: telemetryNumber(distToGoal(waypoint)),
+        },
+        robot: {
+            x: telemetryNumber(robot.position.x),
+            z: telemetryNumber(robot.position.z),
+            heading: telemetryNumber(robot.rotation.y),
+        },
+        stuckPose: navState.forceRose ? {
+            x: telemetryNumber(robot.position.x),
+            z: telemetryNumber(robot.position.z),
+            heading: telemetryNumber(robot.rotation.y),
+        } : null,
+        hitTest: {
+            clear: lastHitTest.clear,
+            kind: lastHitTest.kind,
+            id: lastHitTest.id,
+            x: lastHitTest.x,
+            z: lastHitTest.z,
+            inset: telemetryNumber(hitInsetMeters()),
+        },
+        objects: collectTelemetryObjects(),
+        command: {
+            v: telemetryNumber(cmd.v),
+            omega: telemetryNumber(cmd.omega),
+        },
+        navigation: {
+            rose: navState.roseMode,
+            roseDistance: telemetryNumber(navState.roseDistance),
+            forceRose: navState.forceRose,
+            circuits: navState.roseCircuits,
+            side: navState.roseSide,
+            webon: cmd.webon ? 1 : 0,
+            bugMode: navState.mode,
+        },
+        sensors: {
+            blocked: reading.blocked ? 1 : 0,
+            votes: reading.sensorVotes,
+            weight: telemetryNumber(reading.sensorWeight),
+            forwardClear: telemetryNumber(reading.forwardClear),
+            nearest: telemetryNumber(reading.minObstacleDist),
+            ultrasonic: telemetryDistances(reading.ultrasonic),
+            ir: telemetryDistances(reading.ir),
+        },
+    };
+
+    lastTelemetryAt = now;
+    missionTelemetry.push(sample);
+    addLog(JSON.stringify(sample));
 }
 
 // 🎛️ UI wiring — start, reset, language, object panel
 document.getElementById('startBtn').addEventListener('click', () => {
-    if (waypoints.length < 2) {
+    if (waypoints.length < 1) {
         alert(t('alertNeedWaypoints'));
         return;
     }
-    animating = true;
-    pathIndex = 1;
-    navState = { mode: 'TRACK', bugSide: 1, bugStartDist: 0, lastLogAt: 0 };
-    waypointsPassed = new Array(waypoints.length).fill(false);
-    waypointsPassed[0] = true;
+    missionStart = { x: robot.position.x, z: robot.position.z };
+    pathIndex = 0;
+    navState = {
+        mode: 'TRACK',
+        bugSide: 1,
+        bugStartDist: 0,
+        lastLogAt: 0,
+        roseMode: 0,
+        roseSide: 1,
+        roseStartX: robot.position.x,
+        roseStartZ: robot.position.z,
+        roseLastX: robot.position.x,
+        roseLastZ: robot.position.z,
+        roseDistance: 0,
+        forceRose: 0,
+        roseCircuits: 0,
+        roseLeftStart: 0,
+    };
+    waypointsPassed = new Array(waypoints.length).fill(0);
+    setRobotSelected(0);
     clock.start();
     logList.innerHTML = '';
     robotLog.length = 0;
+    missionTelemetry.length = 0;
+    lastTelemetryAt = -2.00;
     addLog(t('logInit', {
         algo: algoDisplayName(activeAlgo),
         sensors: sensorListLabel() || 'none',
         count: waypoints.length,
         radius: WP_ACCEPT_RADIUS,
     }));
+    animating = 1;
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
@@ -1152,14 +1873,11 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     disposePathLines();
     clearPhysicsProps();
     dragProp = null;
-    isDraggingProp = false;
-    pointerDownPos = null;
-    pointerDownProp = null;
-    activePointerId = null;
-    controls.enabled = true;
-    viewport.classList.remove('dragging-prop');
-    viewport.style.cursor = '';
-    animating = false;
+    isDraggingProp = 0;
+    isDraggingRobot = 0;
+    resetGestureState();
+    setRobotSelected(0);
+    animating = 0;
     navState.mode = 'IDLE';
     mode = 'waypoints';
     statusEl.textContent = t('modeSetWaypoints');
@@ -1170,7 +1888,6 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 });
 
 const clock = new THREE.Clock();
-let pathIndex = 1;
 let selectedObjectType = 'sphere';
 
 ['sensorLidar', 'sensorUltrasonic', 'sensorIr'].forEach((id) => {
@@ -1178,12 +1895,24 @@ let selectedObjectType = 'sphere';
     if (!el) return;
     const keyMap = { sensorlidar: 'lidar', sensorultrasonic: 'ultrasonic', sensorir: 'ir' };
     const key = keyMap[id.toLowerCase()];
-    el.checked = sensorConfig[key];
+    el.checked = sensorConfig[key] === 1;
     el.addEventListener('change', () => {
-        sensorConfig[key] = el.checked;
+        sensorConfig[key] = el.checked ? 1 : 0;
         updateSensorStatus();
     });
 });
+
+const moveObjectsEl = document.getElementById('moveObjectsMode');
+if (moveObjectsEl) {
+    moveObjectsEl.addEventListener('change', () => {
+        moveObjectsMode = moveObjectsEl.checked ? 1 : 0;
+        if (moveObjectsMode) {
+            setRobotSelected(0);
+            deselectProp();
+        }
+        updateModeUi();
+    });
+}
 
 document.querySelectorAll('.lang-btn').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.lang === currentLang);
@@ -1262,6 +1991,8 @@ applyLanguage(currentLang);
 updateModeUi();
 updateSensorStatus();
 syncRobotPhysicsBody();
+const buildStampEl = document.getElementById('buildStamp');
+if (buildStampEl) buildStampEl.textContent = `build ${BUILD_STAMP}`;
 
 function animate() {
     requestAnimationFrame(animate);
@@ -1271,49 +2002,59 @@ function animate() {
     stepPhysics(dt);
     applyRobotPushImpulse(dt);
 
-    radarArcs.forEach((arc) => {
-        if (!sensorConfig.ultrasonic && !sensorConfig.ir) {
-            arc.material.opacity = 0;
-            return;
-        }
-        arc.userData.time += dt;
-        const localT = (arc.userData.time % 1.2) / 1.2;
-        arc.scale.setScalar(1 + localT * 2);
-        arc.material.opacity = (1 - localT) * 0.6;
-    });
+    irBand.visible = sensorConfig.ir ? true : false;
+    usCone.visible = sensorConfig.ultrasonic ? true : false;
+    irBand.material.opacity = sensorConfig.ir ? 0.22 : 0;
+    usCone.material.opacity = sensorConfig.ultrasonic ? 0.18 : 0;
 
     const placingPath = mode === 'waypoints' && !animating;
     robotGlowRing.visible = placingPath;
     if (placingPath) {
-        robotGlowRing.material.opacity = 0.25 + Math.sin(clock.getElapsedTime() * 4) * 0.15;
+        const pulse = 0.25 + Math.sin(clock.getElapsedTime() * 4) * 0.15;
+        robotGlowRing.material.opacity = robotSelected ? pulse + 0.35 : pulse;
     }
     if (pathFlowLine && placingPath) {
         pathFlowLine.material.opacity = 0.7 + Math.sin(clock.getElapsedTime() * 3) * 0.25;
     }
 
-    if (animating && waypoints.length > 1) {
+    if (animating && waypoints.length >= 1) {
         checkWaypointMission();
     }
 
-    if (animating && waypoints.length > 1 && pathIndex < waypoints.length) {
+    if (animating && waypoints.length >= 1 && pathIndex < waypoints.length) {
         const target = waypoints[pathIndex];
+        depenetrateRobot();
         const reading = sensorSuite.read();
+        if (sensorSuite.isPhysicalCollision()) {
+            reading.blocked = 1;
+            reading.forwardClear = Math.min(reading.forwardClear, 0.4);
+            reading.minObstacleDist = Math.min(reading.minObstacleDist, 0.4);
+        }
+
         sensorSuite.updateLidarVisuals(reading);
 
         if (sensorSuite.isPhysicalCollision()) {
             markCollision(robot.position.clone());
         }
 
-        const cmd = computeNavCommand(
+        let cmd = computeNavCommand(
             activeAlgo,
             target,
             reading,
             navState,
-            waypoints[0],
+            missionStart,
         );
-        applyMotion(cmd.v, cmd.omega, dt);
 
-        if (activeAlgo === 'bug2' && navState.mode === 'BUG_FOLLOW') {
+        if (cmd.skip) {
+            skipUnreachableWaypoint();
+        }
+        if (!cmd.skip) {
+            addTelemetrySample(reading, cmd);
+            const motionBlocked = applyMotion(cmd.v, cmd.omega, dt);
+            navState.forceRose = motionBlocked;
+        }
+
+        if (!cmd.skip && activeAlgo === 'bug2' && navState.mode === 'BUG_FOLLOW') {
             const now = clock.getElapsedTime();
             if (now - navState.lastLogAt > 2) {
                 navState.lastLogAt = now;

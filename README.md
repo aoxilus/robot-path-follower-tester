@@ -20,7 +20,7 @@ Coloca waypoints, elige un algoritmo y mira un **robot de 4 ruedas** navegar en 
 |---------|----------|
 | Path-following ideas are slow to validate on real hardware | Instant 3D sandbox in the browser |
 | ROS/Gazebo setup takes forever for a quick test | `npm install && npm run dev` — done |
-| You want to compare Bug0 vs basic avoidance vs random wander | Switch algorithms in one click |
+| You want to compare Pure Pursuit, Bug2, DWA, VFH, and Potential Field | Switch algorithms in one click |
 | Teaching or prototyping a 4-wheel differential-drive bot | Visual telemetry + collision log |
 
 **Future / Futuro:** plug in your own algorithms in **Python** or **JavaScript**.
@@ -31,7 +31,7 @@ Coloca waypoints, elige un algoritmo y mira un **robot de 4 ruedas** navegar en 
 
 ```bash
 git clone <repo-url>
-cd robot-path-follower-tester
+cd robot-path-planning-sim
 npm install
 npm run dev
 ```
@@ -45,7 +45,7 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 **Layout:** left panel = settings · **center** = 3D robot scene · **right** = drag & drop objects + telemetry log.
 
 1. **Click the center scene** → set waypoints (🟢 start · 🟡 middle · 🔴 end)
-2. **Pick an algorithm** → Basic Avoidance · Bug 0 · Random Wander
+2. **Pick an algorithm** → Pure Pursuit · Bug2 · DWA · VFH · Potential Field
 3. **Start Exploration** → watch the robot follow the path and dodge obstacles
 4. **Drag objects** from the right panel onto the scene → stack boxes/spheres/cylinders; the robot pushes them on contact
 
@@ -55,9 +55,11 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 
 | Algorithm | What it does |
 |-----------|--------------|
-| **Basic Avoidance** | Reverse, scan 180°, inject sub-goal, resume |
-| **Bug 0** | Go to goal; on hit, turn and follow obstacle boundary |
-| **Random Wander** | Chaotic turns when blocked — good stress test |
+| **Pure Pursuit** (`pure_pursuit`) | Tracks the waypoint path using a lookahead target |
+| **Bug2** (`bug2`) | Follows the M-line to the goal and traces obstacles when blocked |
+| **DWA** (`dwa`) | Scores short motion candidates and picks a safe forward command |
+| **VFH** (`vfh`) | Builds a local steering choice from obstacle sectors |
+| **Potential Field** (`potential_field`) | Combines attraction to the target with repulsion from obstacles |
 
 ---
 
@@ -68,6 +70,10 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 - **Vite** — fast dev server
 - **i18n** — English + Spanish UI
 
+**Physics note / Nota de física:** `cannon-es` is used for visual props and kinematic rover motion (`applyMotion` + kinematic body). This is not a validated differential-drive dynamics simulator.
+
+**Nota de física / Physics note:** `cannon-es` se usa para objetos visuales y movimiento cinemático del rover (`applyMotion` + cuerpo cinemático). No es un simulador validado de dinámica diferencial.
+
 ---
 
 ## 📂 Project layout
@@ -75,7 +81,8 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 ```
 docs/screenshot.png   # README preview image
 index.html            # 3-column UI (settings | viewport | drag-drop)
-main.js               # scene, 4-wheel robot, sensors, path-following AI
+main.js               # scene, 4-wheel robot, UI state, telemetry
+nav.js                # sensors + 5 algorithms (pure_pursuit, bug2, dwa, vfh, potential_field)
 style.css             # full-width panel layout
 ```
 

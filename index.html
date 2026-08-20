@@ -49,6 +49,7 @@
             <button type="button" class="toggle-btn" data-algo="dwa" data-i18n="algoDwa">DWA</button>
             <button type="button" class="toggle-btn" data-algo="vfh" data-i18n="algoVfh">VFH</button>
             <button type="button" class="toggle-btn" data-algo="potential_field" data-i18n="algoPotential">Potential Field</button>
+            <button type="button" class="toggle-btn" data-algo="custom" data-i18n="algoCustom">Custom (JS hook)</button>
           </div>
           <p class="hint arena-hint" data-i18n="arenaHint">Arena 30×30 m · robot 2×3 m · waypoints snap to grid</p>
           <div class="btn-row">
@@ -70,7 +71,31 @@
       </aside>
 
       <!-- CENTRO: robot / escena 3D -->
-      <main id="viewport" aria-label="3D simulation" data-drop-label="Drop here"></main>
+      <main id="viewport" aria-label="3D simulation" data-drop-label="Drop here">
+        <div id="buildStamp">build 08192026 740</div>
+        <div id="customPad" class="custom-pad">
+          <div class="custom-pad-bar">
+            <h2 data-i18n="customPadTitle">Custom JS</h2>
+            <button type="button" id="customPadClose" data-i18n="customPadClose">Close</button>
+          </div>
+          <div class="custom-pad-pane">
+            <div class="custom-pad-pane-head">
+              <span data-i18n="customSetupLabel">void setup — robot API (read-only)</span>
+              <button type="button" id="customSetupCopy" data-i18n="copyLogBtn">Copy</button>
+            </div>
+            <textarea id="customSetupSrc" readonly spellcheck="false"></textarea>
+          </div>
+          <div class="custom-pad-pane custom-pad-pane-loop">
+            <div class="custom-pad-pane-head">
+              <span data-i18n="customLoopLabel">loop() — assign v and omega</span>
+              <button type="button" id="customCheckBtn" data-i18n="customCheckBtn">Check</button>
+              <button type="button" id="customSaveBtn" data-i18n="customSaveBtn">Save</button>
+            </div>
+            <textarea id="customLoopSrc" spellcheck="false"></textarea>
+            <p id="customCheckMsg" class="custom-check-msg"></p>
+          </div>
+        </div>
+      </main>
 
       <!-- DERECHA: drag & drop objetos -->
       <aside id="panel-right" class="panel">
@@ -106,11 +131,23 @@
           </label>
           <input type="range" id="objectMass" min="0.5" max="50" step="0.5" value="5">
           <button type="button" id="clearObjectsBtn" data-i18n="clearObjectsBtn">Clear Objects</button>
-          <p class="hint" data-i18n="objectHint">Grab an object from here and drop it on the center scene. Stack them up!</p>
+          <label class="sensor-check move-objects-toggle">
+            <input type="checkbox" id="moveObjectsMode">
+            <span data-i18n="moveObjectsLabel">Move objects (hold+drag)</span>
+          </label>
+          <p class="hint" data-i18n="moveObjectsHint">When on: drag scene objects only. Rover and waypoints disabled.</p>
+          <p class="hint" data-i18n="objectHint">Drag from the palette to place. Uncheck move mode for rover/waypoints.</p>
         </section>
 
         <section class="panel-section panel-section-grow">
-          <h2 data-i18n="telemetryLog">Telemetry Log</h2>
+          <div class="log-header">
+            <h2 data-i18n="telemetryLog">Telemetry Log</h2>
+            <div class="log-actions">
+              <button type="button" id="copyLogBtn" data-i18n="copyLogBtn">Copy</button>
+              <button type="button" id="exportTelemetryJson" data-i18n="exportTelemetryJson">Export JSON</button>
+              <button type="button" id="exportTelemetryCsv" data-i18n="exportTelemetryCsv">Export CSV</button>
+            </div>
+          </div>
           <ul id="logList"></ul>
         </section>
       </aside>

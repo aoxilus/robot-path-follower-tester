@@ -1,0 +1,51 @@
+{
+  "project": "Robot Path Follower Tester",
+  "project_path": "..",
+  "model": "protected.gpt-5.5",
+  "rules": "TAMU OpenCode ejecuta cada tarea. Agente verificador corre verify-task.ps1. Si falla verificacion, reportar — NO corregir codigo.",
+  "source": "docs/CRITICA_TAMU.md alta/media + cola previa",
+  "tasks": [
+    {
+      "id": "smoke-script",
+      "title": "Script smoke_sim.mjs",
+      "priority": "alta",
+      "prompt": "Create scripts/smoke_sim.mjs for Robot Path Follower Tester (Vite + Three.js). Use only Node stdlib (fs, path, url). It must: (1) resolve the repo root as the parent of scripts/; (2) check these files exist and are non-empty: package.json, index.html, main.js, nav.js, style.css; (3) read package.json and fail if name is missing or if dependencies do not include three and cannon-es; (4) read nav.js and fail unless it contains createNavSystem and all five algorithm ids: pure_pursuit, bug2, dwa, vfh, potential_field; (5) read index.html and fail unless it has data-algo buttons for those same five ids; (6) print one OK or FAIL line per check; (7) exit 0 if all pass else exit 1. Do not add npm packages. Do not modify main.js or nav.js.",
+      "verify": "smoke-script"
+    },
+    {
+      "id": "readme-algos",
+      "title": "README algoritmos actuales",
+      "priority": "alta",
+      "prompt": "Update README.md to match the live app. Algorithms in index.html / nav.js are: Pure Pursuit (pure_pursuit), Bug2 (bug2), DWA (dwa), VFH (vfh), Potential Field (potential_field). Replace any table or steps that still list Basic Avoidance, Bug 0, or Random Wander as built-in algorithms. Quick start cd path must be robot-path-planning-sim (not robot-path-follower-tester). In project layout mention nav.js (sensors + 5 algorithms). Add a short note that cannon-es physics is visual/kinematic for the rover (applyMotion + kinematic body), not a validated differential-drive dynamics sim. Keep EN/ES tone. Do not invent new features. Do not edit JS/HTML/CSS.",
+      "verify": "readme-algos"
+    },
+    {
+      "id": "drop-dat-gui",
+      "title": "Quitar dat.gui no usado",
+      "priority": "media",
+      "prompt": "dat.gui is listed in package.json dependencies but is not imported in main.js, nav.js, or index.html. Remove the dat.gui dependency from package.json. If package-lock.json exists, remove dat.gui from it too so the lockfile stays consistent. Do not add other packages. Do not change application source files (main.js, nav.js, index.html, style.css).",
+      "verify": "drop-dat-gui"
+    },
+    {
+      "id": "telemetry-export",
+      "title": "Exportar telemetria JSON/CSV",
+      "priority": "alta",
+      "prompt": "Robot Path Follower Tester already stores samples in missionTelemetry and window.missionTelemetry in main.js. A Copy button (#copyLogBtn) already exists in the telemetry log header — keep it. Add telemetry export without changing navigation or physics. (1) In index.html, in the telemetry log section .log-header, add two buttons: id=exportTelemetryJson and id=exportTelemetryCsv with data-i18n keys exportTelemetryJson and exportTelemetryCsv. (2) In main.js translations en and es, add those two keys (EN: 'Export JSON' / 'Export CSV'; ES: 'Exportar JSON' / 'Exportar CSV'). (3) In main.js add download helpers that serialize missionTelemetry: JSON pretty-printed as robot-telemetry.json; CSV with header t,algorithm,wp_index,wp_x,wp_z,wp_distance,robot_x,robot_z,heading,v,omega,blocked,forwardClear,nearest as robot-telemetry.csv. Empty array still downloads a valid empty JSON array / CSV header-only file. (4) Wire click handlers. Do not remove window.missionTelemetry. Do not change addTelemetrySample sampling rate. Do not edit nav.js.",
+      "verify": "telemetry-export"
+    },
+    {
+      "id": "stuck-recovery-dead",
+      "title": "Quitar handleStuckRecovery muerto",
+      "priority": "alta",
+      "prompt": "In main.js, handleStuckRecovery() is defined but animate() forces const recovery = 'nav' and never calls it. Obstacle recovery already lives in nav.js safetyCommand / dontbeWebon. Remove handleStuckRecovery and any helpers used only by it (if stuckTracker is only for that path, remove it too; if resetStuckTracker is still called from mission start/skip, keep the tracker only if still referenced). In animate(), delete the dead recovery === 'nav' / 'reverse' branch: always use the existing computeNavCommand path. Keep skipUnreachableWaypoint, applyMotion, and dontbeWebon behavior. Do not edit nav.js. Do not change GUI layout except if a comment must be updated.",
+      "verify": "stuck-recovery-dead"
+    },
+    {
+      "id": "custom-algo-stub",
+      "title": "Hook algoritmo custom.js",
+      "priority": "media",
+      "prompt": "Add a custom algorithm hook for Robot Path Follower Tester. Create algorithms/custom.js that exports function computeCustomCommand(ctx) returning { v, omega }. ctx will include robot, target, headingErr, blocked, clear, reading, MAX_SPEED, MAX_OMEGA. Default implementation: drive toward the goal like a slow pure-pursuit (v = MAX_SPEED * 0.6, omega clamped headingErr * 2). In nav.js, if activeAlgo === 'custom', call computeCustomCommand and return its command; import it at top of nav.js. In index.html add a sixth algorithm button data-algo=\"custom\" after potential_field. In main.js add translations en/es: algoCustom and algoNameCustom (EN: 'Custom (JS hook)'; ES: 'Custom (gancho JS)'). Wire algoDisplayName for custom. Do not change the other five algorithms or dontbeWebon.",
+      "verify": "custom-algo-stub"
+    }
+  ]
+}

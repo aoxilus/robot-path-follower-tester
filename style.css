@@ -82,6 +82,47 @@ body {
   color: var(--accent);
 }
 
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.panel-section .log-header h2 {
+  margin: 0;
+}
+
+.log-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+#copyLogBtn,
+#exportTelemetryJson,
+#exportTelemetryCsv {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+#copyLogBtn:hover,
+#exportTelemetryJson:hover,
+#exportTelemetryCsv:hover {
+  background: rgba(0, 255, 204, 0.12);
+}
+
 .panel-header h1 {
   margin: 10px 0 4px;
   font-size: 1.05rem;
@@ -200,8 +241,17 @@ body {
   line-height: 1.4;
 }
 
-.arena-hint {
+.move-objects-toggle {
   margin-top: 10px;
+  padding: 8px 10px;
+  background: #1c1c1c;
+  border: 1px solid #444;
+  border-radius: 6px;
+}
+
+.move-objects-toggle:has(input:checked) {
+  border-color: var(--accent);
+  background: rgba(0, 255, 204, 0.08);
 }
 
 .toggle-btn {
@@ -284,6 +334,21 @@ input[type="range"] {
   min-width: 0;
   min-height: 0;
   background: var(--center-bg);
+}
+
+#buildStamp {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 4;
+  pointer-events: none;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: #00ffcc;
+  background: rgba(10, 14, 18, 0.72);
+  border: 1px solid #1a4a40;
+  padding: 3px 8px;
 }
 
 #viewport.dragging-prop {

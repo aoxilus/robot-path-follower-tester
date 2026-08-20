@@ -2,9 +2,11 @@ node_modules/
 dist/
 .env
 .env.*
+!.env.example
 *.log
 .DS_Store
 Thumbs.db
+tamu-helper-cli/logs/
 
 # Local only — never publish to GitHub
 .cursor/
