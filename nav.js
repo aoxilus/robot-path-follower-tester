@@ -1,6 +1,5 @@
 // Navigation sensors + 5 path algorithms (imported by main.js)
 import * as THREE from 'three';
-import { computeCustomCommand } from './algorithms/custom.js';
 
 export function createNavSystem(ctx) {
     const {
@@ -249,11 +248,17 @@ export function createNavSystem(ctx) {
     }
 
     const sensorSuite = new SensorSuite(robot, obstacles);
-    let customRunner = computeCustomCommand;
+
+    function defaultCustomCommand(ctx) {
+        const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, ctx.headingErr * 2));
+        return { v: MAX_SPEED * 0.60, omega };
+    }
+
+    let customRunner = defaultCustomCommand;
 
     function setCustomRunner(fn) {
         if (typeof fn === 'function') customRunner = fn;
-        if (typeof fn !== 'function') customRunner = computeCustomCommand;
+        if (typeof fn !== 'function') customRunner = defaultCustomCommand;
     }
 
     function normalizeAngle(a) {
