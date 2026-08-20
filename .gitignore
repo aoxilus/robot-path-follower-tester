@@ -10,7 +10,11 @@ Thumbs.db
 # Local AI / TAMU helper — never publish to GitHub
 tamu-helper-cli/
 run-tamu-orchestrate.bat
-docs/
+docs/TAMU_*.md
+docs/CRITICA_TAMU.md
+docs/DISENO_PORTABILIDAD.md
+docs/CURSOR-AGENTS.md
+docs/PREFERENCIAS.md
 .cursor/
 AGENTS.md
 *.local.md

@@ -1,6 +1,6 @@
 # Wiki — Robot Path Follower Tester
 
-Public project documentation (safe for GitHub). Local AI / TAMU notes live under `docs/` and are **gitignored**.
+Public project documentation also lives in **[docs/HOW_IT_WORKS.md](../docs/HOW_IT_WORKS.md)**. This `notes/` wiki is extra API detail. Local TAMU / agent files under `docs/TAMU_*.md` stay gitignored.
 
 ## Contents
 

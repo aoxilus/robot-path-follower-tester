@@ -2,7 +2,7 @@
 
 EN / ES · Vite + Three.js
 
-![Robot Path Follower Tester — 3-column UI with 4-wheel robot, waypoints, and physics objects](notes/screenshot.png)
+![Robot Path Follower Tester — 3-column UI with 4-wheel robot, waypoints, and physics objects](docs/screenshot.png)
 
 > **Many times we need to fast-simulate follow algorithms on a 4-wheel robot — that's why we made this app.**
 >
@@ -85,10 +85,14 @@ main.js                 # scene, rover, mission, telemetry, Custom checker
 nav.js                  # sensors + algorithms
 style.css               # layout
 scripts/smoke_sim.mjs   # smoke test
-notes/                  # public wiki (how-to + API)
+docs/HOW_IT_WORKS.md    # how the sim works
+docs/ARCHITECTURE.md    # files + data flow
+docs/CUSTOM_JS.md       # Custom pad
+docs/screenshot.png     # README preview
+notes/                  # extra API wiki
 ```
 
-Wiki: **[notes/Home.md](notes/Home.md)** — how to use, architecture, `main.js` / `nav.js` API, Custom JS.
+Walkthrough: **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** (sensors, algorithms, Custom pad, telemetry, physics).
 
 ---
 
