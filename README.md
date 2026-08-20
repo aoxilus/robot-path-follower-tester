@@ -107,6 +107,6 @@ Walkthrough: **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** (sensors, algorith
 
 ## 📜 License
 
-MIT — use it, break it, improve it.
+CC BY-NC-SA 4.0 — see [LICENSE](LICENSE).
 
 Made with 🥑 by [aoxilus](https://github.com/aoxilus)
