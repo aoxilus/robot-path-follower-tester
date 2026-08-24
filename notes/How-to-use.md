@@ -21,7 +21,7 @@ Toggle **EN / ES** at the top of the left panel.
 |-------|------|
 | **Left** | Sensors, algorithm, Start / Reset, waypoint vs object mode |
 | **Center** | 3D arena (30×30 m). Short floor click = waypoint. Drag = camera |
-| **Right** | Drag spheres / cubes / cylinders + telemetry log |
+| **Right** | Drag spheres / cubes / cylinders, **✏️ draw terrain**, telemetry log |
 
 ## Mission loop
 
@@ -35,16 +35,22 @@ Toggle **EN / ES** at the top of the left panel.
 
 | Sensor | Range | Role |
 |--------|-------|------|
-| **LIDAR** | 5 m | 360° scan (36 bins), drawn as rays |
+| **LIDAR** | 6 m | Slower 360° scan; range is 2× the largest rover dimension |
 | **Ultrasonic** | 4 m | Front cone (−0.35, 0, +0.35 rad) |
-| **IR ×3** | 2 m | Short bumper rays L / C / R |
-| **Hit test** | hull | On: avoid/stop + go-around. Off: push light props; cones and ≥25 kg still block |
+| **IR ×3** | 0.6 m | Very short contact rays L / C / R |
+| **Floor IR ×3** | 3 m | On: detect and route around depression edges. Off: rover may enter and descend |
+| **Spring bumper** | contact | Visible bar compresses and briefly reverses. Off: push light props; cones and ≥25 kg still block |
+
+Each sensor works independently. LIDAR alone uses a slower 360° scan and checks a 3 m-wide rover corridor for every candidate direction; ultrasonic alone watches its inexpensive front cone.
 
 ## Interaction
 
 - **Waypoints** — short click floor; hold+drag rover.
 - **Props** — click to select; Weight / Scale sliders edit selection (or defaults for next drop).
 - **Move objects** — camera locked; drag cones and props.
+- **Draw shape (✏️)** — right panel. Drag on the floor to outline a polygon (concave loops kept). Flat in the plane until **Extrude**: **↑ raises a mountain**; **↓ sinks a depression** that follows your outline.
+
+If the rover remains within `0.08 m` for `1.5 s`, shared stuck recovery reverses, turns toward the clearest fused-sensor direction, escapes forward, and resumes the selected algorithm.
 
 ## Algorithms
 
@@ -70,6 +76,6 @@ Every ~2 s the log records pose, waypoint, command, sensors, and nearby objects.
 
 ## Physics note
 
-- **Rover** — kinematic (`applyMotion`). Hit test on: no overlap. Hit test off: pushes light props; cones / heavy props still stop it.
-- **Dropped props** — dynamic `cannon-es` bodies the rover can push.
+- **Rover** — kinematic (`applyMotion`). Hit test on: no overlap. Hit test off: pushes light props; cones / heavy props still stop it. It follows drawn terrain height.
+- **Dropped props** — dynamic `cannon-es` bodies the rover can push; terrain relief uses static triangle meshes.
 - Teaching sandbox, not a validated differential-drive plant model.

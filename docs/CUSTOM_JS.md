@@ -32,6 +32,7 @@ Saved source: `localStorage.customLoopJs`.
 | `lidar` | 36 bins (or empty) |
 | `ultrasonic` | 3 values |
 | `ir` | 3 values |
+| `floorIr` | 3 depression-edge values |
 | `MAX_SPEED`, `MAX_OMEGA` | Caps |
 
 **Math:** `sin`, `cos`, `atan2`, `hypot`, `abs`, `max`, `min`, `PI`, and other whitelisted `Math` names.

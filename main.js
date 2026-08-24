@@ -7,7 +7,7 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08202026 1300';
+const BUILD_STAMP = '08242026 1535';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
@@ -34,10 +34,12 @@ const translations = {
         customSetupCopied: 'Copied',
         sectionSensors: 'Sensors',
         sensorHint: 'Enable sensors — algorithms use what is active',
-        sensorLidar: 'LIDAR (360° scan, 5 m)',
+        sensorLidar: 'LIDAR (360° scan, 6 m)',
         sensorUltrasonic: 'Ultrasonic (front cone, 4 m)',
-        sensorIr: '3× IR front (short range, 2 m)',
-        sensorHitTest: 'Hit test (footprint avoid / stop)',
+        sensorIr: '3× IR front (contact range, 0.6 m)',
+        sensorFloorIr: 'Floor IR (holes; off = 4×4)',
+        sensorHitTest: 'Spring bumper (contact hit test)',
+        sensorFloorIrHint: 'On: avoid depressions · Off: drive into holes like 4×4',
         sensorStatusNone: 'No sensors — blind drive (bump + physics push)',
         sensorStatusActive: 'Active: {list}',
         arenaHint: 'Arena {side}×{side} m ({area} m²) · robot 2×3 m · waypoints snap to grid',
@@ -51,6 +53,11 @@ const translations = {
         copyLogBtn: 'Copy',
         exportTelemetryJson: 'Export JSON',
         exportTelemetryCsv: 'Export CSV',
+        showErrorReportBtn: 'Show Error Report',
+        errorReportTitle: 'Robot Error Report',
+        errorReportHint: 'Copy report and paste it here.',
+        copyErrorReportBtn: 'Copy Report',
+        errorReportCopied: 'Report Copied',
         logCopied: 'Copied',
         alertNeedWaypoints: 'Place at least one waypoint on the floor (rover position = start).',
         logInit: 'INIT: {algo} · {sensors} · {count} waypoints · accept radius {radius}m',
@@ -60,6 +67,7 @@ const translations = {
         logAvoid: 'AVOID: Obstacle at {dist}m — {action}',
         logBug2: 'BUG2: Following boundary ({side})',
         logDwa: 'DWA: v={v} ω={w}',
+        logRecovery: 'RECOVERY: {phase} — stuck within 0.08 m',
         algoNamePurePursuit: 'Pure Pursuit',
         algoNameBug2: 'Bug2',
         algoNameDwa: 'DWA',
@@ -78,6 +86,21 @@ const translations = {
         objectScaleLabel: 'Scale:',
         terrainSizeLabel: 'Terrain:',
         terrainSizeHint: 'Side length 10–60 m · area in m²',
+        drawTerrainLabel: 'Draw shape',
+        drawTerrainHint: 'Pencil on: drag on the floor. Then extrude ↑ mountain or ↓ depression.',
+        stampHeightLabel: 'Extrude:',
+        stampHeightFlat: '0 m · flat',
+        stampHeightCavity: '↑ {m} m mountain',
+        stampHeightBowl: '↓ {m} m depression',
+        stampHeightDown: '↓ intrude',
+        stampHeightUp: 'extrude ↑',
+        stampHeightHint: '↑ raises a mountain · ↓ sinks a visible depression',
+        clearStampBtn: 'Remove shape',
+        modeDrawTerrain: 'Draw terrain — hold and drag on the floor to outline a shape',
+        logStampDrawn: 'TERRAIN: Drew a shape ({n} pts)',
+        logStampTooSmall: 'TERRAIN: Shape too small — draw a larger loop',
+        logStampHeight: 'TERRAIN: {label}',
+        logStampRemoved: 'TERRAIN: Removed shape',
         propEditHint: 'Select a prop to edit mass/scale. Sliders set defaults for the next drop.',
         clearObjectsBtn: 'Clear Objects',
         moveObjectsLabel: 'Move objects (hold+drag)',
@@ -121,10 +144,12 @@ const translations = {
         customSetupCopied: 'Copiado',
         sectionSensors: 'Sensores',
         sensorHint: 'Activa sensores — el algoritmo usa los disponibles',
-        sensorLidar: 'LIDAR (360°, 5 m)',
+        sensorLidar: 'LIDAR (360°, 6 m)',
         sensorUltrasonic: 'Ultrasónico (cono frontal, 4 m)',
-        sensorIr: '3× IR frontal (corto alcance, 2 m)',
-        sensorHitTest: 'Hit test (esquive / freno por huella)',
+        sensorIr: '3× IR frontal (contacto, 0.6 m)',
+        sensorFloorIr: 'IR de piso (hoyos; off = 4×4)',
+        sensorHitTest: 'Parachoques de resorte (contacto)',
+        sensorFloorIrHint: 'On: evita depresiones · Off: entra a hoyos como 4×4',
         sensorStatusNone: 'Sin sensores — a ciegas (choca y empuja con física)',
         sensorStatusActive: 'Activos: {list}',
         arenaHint: 'Arena {side}×{side} m ({area} m²) · robot 2×3 m · waypoints en rejilla',
@@ -138,6 +163,11 @@ const translations = {
         copyLogBtn: 'Copiar',
         exportTelemetryJson: 'Exportar JSON',
         exportTelemetryCsv: 'Exportar CSV',
+        showErrorReportBtn: 'Mostrar reporte de error',
+        errorReportTitle: 'Reporte de error del robot',
+        errorReportHint: 'Copia el reporte y pégalo aquí.',
+        copyErrorReportBtn: 'Copiar reporte',
+        errorReportCopied: 'Reporte copiado',
         logCopied: 'Copiado',
         alertNeedWaypoints: 'Coloca al menos un waypoint en el suelo (posición del rover = inicio).',
         logInit: 'INICIO: {algo} · {sensors} · {count} waypoints · radio {radius}m',
@@ -147,6 +177,7 @@ const translations = {
         logAvoid: 'EVITAR: Obstáculo a {dist}m — {action}',
         logBug2: 'BUG2: Siguiendo contorno ({side})',
         logDwa: 'DWA: v={v} ω={w}',
+        logRecovery: 'RECUPERACIÓN: {phase} — atascado dentro de 0.08 m',
         algoNamePurePursuit: 'Pure Pursuit',
         algoNameBug2: 'Bug2',
         algoNameDwa: 'DWA',
@@ -165,6 +196,21 @@ const translations = {
         objectScaleLabel: 'Escala:',
         terrainSizeLabel: 'Terreno:',
         terrainSizeHint: 'Lado 10–60 m · área en m²',
+        drawTerrainLabel: 'Dibujar forma',
+        drawTerrainHint: 'Lápiz on: arrastra en el piso. Luego extruye ↑ montaña o ↓ depresión.',
+        stampHeightLabel: 'Extruir:',
+        stampHeightFlat: '0 m · plano',
+        stampHeightCavity: '↑ {m} m montaña',
+        stampHeightBowl: '↓ {m} m depresión',
+        stampHeightDown: '↓ hundir',
+        stampHeightUp: 'elevar ↑',
+        stampHeightHint: '↑ levanta una montaña · ↓ hunde una depresión visible',
+        clearStampBtn: 'Quitar forma',
+        modeDrawTerrain: 'Dibujar terreno — mantén y arrastra en el piso para trazar la forma',
+        logStampDrawn: 'TERRENO: Forma dibujada ({n} pts)',
+        logStampTooSmall: 'TERRENO: Forma muy chica — traza un lazo más grande',
+        logStampHeight: 'TERRENO: {label}',
+        logStampRemoved: 'TERRENO: Forma quitada',
         propEditHint: 'Selecciona un objeto para editar peso/escala. Los sliders son default del próximo drop.',
         clearObjectsBtn: 'Quitar objetos',
         moveObjectsLabel: 'Mover objetos (mantén+arrastra)',
@@ -186,6 +232,19 @@ const translations = {
         dropHere: 'Soltar aquí',
     },
 };
+
+const runtimeErrors = [];
+function recordRuntimeError(message) {
+    runtimeErrors.push(`${new Date().toISOString()} ${message}`);
+    if (runtimeErrors.length > 20) runtimeErrors.shift();
+}
+window.addEventListener('error', (event) => {
+    recordRuntimeError(`${event.message} @ ${event.filename}:${event.lineno}`);
+});
+window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason?.stack || event.reason?.message || String(event.reason);
+    recordRuntimeError(`Unhandled promise: ${reason}`);
+});
 
 let currentLang = localStorage.getItem('lang')
     || (navigator.language.startsWith('es') ? 'es' : 'en');
@@ -241,6 +300,9 @@ function applyLanguage(lang) {
     if (typeof updateTerrainUi === 'function') {
         updateTerrainUi();
     }
+    if (typeof updateStampHeightUi === 'function') {
+        updateStampHeightUi();
+    }
 }
 
 // 🎬 Scene setup — camera, renderer, orbit controls
@@ -255,6 +317,7 @@ camera.position.set(0, 15, 20);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 viewport.appendChild(renderer.domElement);
 
 function resizeViewport() {
@@ -274,14 +337,22 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 
 // Lights
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.38);
 scene.add(ambientLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.15);
 dirLight.position.set(10, 20, 10);
 dirLight.castShadow = true;
 dirLight.shadow.mapSize.width = 2048;
 dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.left = -35;
+dirLight.shadow.camera.right = 35;
+dirLight.shadow.camera.top = 35;
+dirLight.shadow.camera.bottom = -35;
+dirLight.shadow.camera.near = 1;
+dirLight.shadow.camera.far = 80;
+dirLight.shadow.bias = -0.0008;
+dirLight.shadow.normalBias = 0.03;
 scene.add(dirLight);
 
 // 🎨 Procedural textures for floor, wheels, and body
@@ -381,8 +452,12 @@ function setTerrainSize(size) {
     PLANE_HALF = PLANE_SIZE / 2;
     BUILD_LIMIT = PLANE_HALF - BUILD_MARGIN;
 
-    plane.geometry.dispose();
-    plane.geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE);
+    if (typeof rebuildArenaFloor === 'function') {
+        rebuildArenaFloor();
+    } else {
+        plane.geometry.dispose();
+        plane.geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE);
+    }
 
     scene.remove(gridHelper);
     gridHelper.geometry.dispose();
@@ -438,18 +513,20 @@ function setTerrainSize(size) {
 const robot = new THREE.Group();
 const carHeight = 1;
 
-// Tight collision hull — body footprint only (excludes radar / scan visuals).
-// Do NOT use setFromObject(robot): radar rings and scan lines inflate the box.
+// Full physical footprint: body + four wheels. Radar/scan visuals stay excluded.
+// Do NOT use setFromObject(robot): sensor graphics would inflate the box.
 const ROBOT_COLLISION = {
-    halfWidth: 1.0,   // body 2 m wide
+    halfWidth: 1.4,   // wheels extend total width to 2.8 m
     halfHeight: 0.5,
-    halfLength: 1.5,  // body 3 m long
+    halfLength: 1.5,  // wheels/body extend total length to 3 m
     centerY: carHeight / 2 + 0.5,
 };
 const ROBOT_WIDTH = ROBOT_COLLISION.halfWidth * 2;
-const LIDAR_RANGE = 5;
+const ROBOT_LENGTH = ROBOT_COLLISION.halfLength * 2;
+const LIDAR_RANGE = Math.max(ROBOT_WIDTH, ROBOT_LENGTH) * 2;
 const ULTRASONIC_RANGE = 4;
-const IR_RANGE = 2;
+const IR_RANGE = 0.6;
+const FLOOR_IR_RANGE = 3;
 const SENSOR_RANGE = LIDAR_RANGE;
 const PASS_CLEAR_MARGIN = 0.3;
 const MAX_SPEED = 4;
@@ -487,6 +564,38 @@ wheelPositions.forEach(pos => {
     wheels.push(wheel);
     robot.add(wheel);
 });
+
+// Contact hit-test visual: bright front bumper that compresses like a spring.
+const bumperBar = new THREE.Mesh(
+    new THREE.BoxGeometry(2.75, 0.28, 0.28),
+    new THREE.MeshStandardMaterial({
+        color: 0xff3b1f,
+        emissive: 0x661400,
+        metalness: 0.35,
+        roughness: 0.40,
+    }),
+);
+bumperBar.position.set(0, 0.55, 1.72);
+bumperBar.castShadow = true;
+bumperBar.userData.sensorVisual = true;
+robot.add(bumperBar);
+
+const bumperSprings = [-0.90, 0.90].map((x) => {
+    const spring = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.07, 0.36, 10),
+        new THREE.MeshStandardMaterial({
+            color: 0xe8e8e8,
+            metalness: 0.85,
+            roughness: 0.20,
+        }),
+    );
+    spring.rotation.x = Math.PI / 2;
+    spring.position.set(x, 0.55, 1.52);
+    spring.userData.sensorVisual = true;
+    robot.add(spring);
+    return spring;
+});
+let bumperCompression = 0;
 
 scene.add(robot);
 
@@ -557,9 +666,14 @@ physicsWorld.addContactMaterial(new CANNON.ContactMaterial(robotMaterial, ground
     restitution: 0,
 }));
 
+const FILTER_GROUND = 1;
+const FILTER_TERRAIN = 2;
+const FILTER_PROP = 4;
+
 const groundBody = new CANNON.Body({ mass: 0, material: groundMaterial });
 groundBody.addShape(new CANNON.Plane());
 groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+groundBody.collisionFilterGroup = FILTER_GROUND;
 physicsWorld.addBody(groundBody);
 
 const staticObstacleBodies = [];
@@ -594,7 +708,7 @@ const robotBody = new CANNON.Body({
 });
 robotBody.addShape(
     new CANNON.Box(new CANNON.Vec3(
-        1.20,
+        ROBOT_COLLISION.halfWidth,
         ROBOT_COLLISION.halfHeight,
         ROBOT_COLLISION.halfLength,
     )),
@@ -678,6 +792,8 @@ function createPhysicsProp(type, x, y, z, mass = DEFAULT_PROP_MASS, scale = DEFA
         material: propMaterial,
         linearDamping: 0.08,
         angularDamping: 0.25,
+        collisionFilterGroup: FILTER_PROP,
+        collisionFilterMask: -1,
     });
 
     let mesh;
@@ -729,12 +845,13 @@ function clearPhysicsProps() {
 }
 
 function syncRobotPhysicsBody() {
-    robotBody.position.set(robot.position.x, 0, robot.position.z);
+    robotBody.position.set(robot.position.x, robot.position.y, robot.position.z);
     robotBody.quaternion.setFromEuler(0, robot.rotation.y, 0);
 }
 
 function stepPhysics(dt) {
     syncRobotPhysicsBody();
+    if (typeof updatePropTerrainMasks === 'function') updatePropTerrainMasks();
     physicsWorld.step(Math.min(dt, 1 / 30), dt, 5);
     physicsProps.forEach(({ mesh, body }) => {
         mesh.position.copy(body.position);
@@ -742,27 +859,674 @@ function stepPhysics(dt) {
     });
 }
 
-const HIT_PIXELS = 5;
+// ✏️ Terrain stamps — draw a polygon, then extrude ↑ mountain / ↓ depression
+const STAMP_HEIGHT_MIN = -5;
+const STAMP_HEIGHT_MAX = 5;
+const STAMP_FLAT_EPS = 0.08;
+const STAMP_WALL_THICK = 0.22;
+const STAMP_DRAW_STEP = 0.28;
+const STAMP_MIN_AREA = 0.8;
+const STAMP_MIN_POINTS = 4;
+const STAMP_BOWL_STEP = 0.45;
+const ROVER_GRAVITY = -15;
+
+const terrainStampGroup = new THREE.Group();
+scene.add(terrainStampGroup);
+const terrainStamps = [];
+let selectedStamp = null;
+let drawTerrainMode = 0;
+let isDrawingStroke = 0;
+let drawStrokePoints = [];
+let robotVy = 0;
+
+const stampMats = {
+    flat: new THREE.MeshStandardMaterial({
+        color: 0x00ffcc, transparent: true, opacity: 0.32, roughness: 0.9,
+        depthWrite: false, side: THREE.DoubleSide,
+    }),
+    relief: new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.88,
+        metalness: 0,
+        vertexColors: true,
+        side: THREE.DoubleSide,
+    }),
+    reliefGrid: new THREE.MeshBasicMaterial({
+        color: 0x72b9c9,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+    }),
+    sensorWall: new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        colorWrite: false,
+        side: THREE.DoubleSide,
+    }),
+    outline: new THREE.LineBasicMaterial({ color: 0x88ffee }),
+    outlineSel: new THREE.LineBasicMaterial({ color: 0xffcc44 }),
+};
+
+const drawPreviewLine = new THREE.Line(
+    new THREE.BufferGeometry(),
+    new THREE.LineBasicMaterial({ color: 0xffee88, transparent: true, opacity: 0.95 }),
+);
+drawPreviewLine.visible = false;
+drawPreviewLine.frustumCulled = false;
+scene.add(drawPreviewLine);
+
+function pointInPolygon(x, z, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+        const xi = pts[i].x;
+        const zi = pts[i].z;
+        const xj = pts[j].x;
+        const zj = pts[j].z;
+        const denom = (zj - zi) || 1e-12;
+        const hit = ((zi > z) !== (zj > z)) && (x < ((xj - xi) * (z - zi)) / denom + xi);
+        if (hit) inside = !inside;
+    }
+    return inside;
+}
+
+function polygonAreaXZ(pts) {
+    return Math.abs(polygonSignedAreaXZ(pts));
+}
+
+function polygonSignedAreaXZ(pts) {
+    let a = 0;
+    for (let i = 0; i < pts.length; i++) {
+        const j = (i + 1) % pts.length;
+        a += pts[i].x * pts[j].z - pts[j].x * pts[i].z;
+    }
+    return a * 0.5;
+}
+
+function distPointSeg(px, pz, ax, az, bx, bz) {
+    const abx = bx - ax;
+    const abz = bz - az;
+    const den = abx * abx + abz * abz || 1;
+    const t = Math.max(0, Math.min(1, ((px - ax) * abx + (pz - az) * abz) / den));
+    return Math.hypot(px - (ax + abx * t), pz - (az + abz * t));
+}
+
+function minDistToEdges(x, z, pts) {
+    let d = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        d = Math.min(d, distPointSeg(x, z, a.x, a.z, b.x, b.z));
+    }
+    return d;
+}
+
+function maxInteriorEdgeDist(pts) {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < pts.length; i++) {
+        minX = Math.min(minX, pts[i].x);
+        maxX = Math.max(maxX, pts[i].x);
+        minZ = Math.min(minZ, pts[i].z);
+        maxZ = Math.max(maxZ, pts[i].z);
+    }
+    let best = 0.3;
+    const nx = 10;
+    const nz = 10;
+    for (let j = 0; j <= nz; j++) {
+        for (let i = 0; i <= nx; i++) {
+            const x = minX + (i / nx) * (maxX - minX);
+            const z = minZ + (j / nz) * (maxZ - minZ);
+            if (!pointInPolygon(x, z, pts)) continue;
+            best = Math.max(best, minDistToEdges(x, z, pts));
+        }
+    }
+    return best;
+}
+
+function stampHeightAtPoint(stamp, x, z) {
+    if (!stamp || Math.abs(stamp.height) < STAMP_FLAT_EPS) return 0;
+    if (!pointInPolygon(x, z, stamp.points)) return 0;
+    const d = minDistToEdges(x, z, stamp.points);
+    const maxD = stamp.maxInteriorDist || 0.5;
+    const t = Math.min(1, d / Math.max(0.12, maxD * 0.85));
+    const s = t * t * (3 - 2 * t);
+    return stamp.height * s;
+}
+
+function terrainHeightAt(x, z) {
+    let y = 0;
+    for (let i = 0; i < terrainStamps.length; i++) {
+        const h = stampHeightAtPoint(terrainStamps[i], x, z);
+        if (Math.abs(h) > Math.abs(y)) y = h;
+    }
+    return y;
+}
+
+function roverTerrainHeight() {
+    return terrainHeightAt(robot.position.x, robot.position.z);
+}
+
+function bodyInTerrainCut(body) {
+    if (!body) return 0;
+    const x = body.position.x;
+    const y = body.position.y;
+    const z = body.position.z;
+    if (y > 0.45) return 0;
+    for (let i = 0; i < terrainStamps.length; i++) {
+        const stamp = terrainStamps[i];
+        if (stamp.height >= -STAMP_FLAT_EPS) continue;
+        if (pointInPolygon(x, z, stamp.points)) return 1;
+    }
+    return 0;
+}
+
+function updatePropTerrainMasks() {
+    for (let i = 0; i < physicsProps.length; i++) {
+        const prop = physicsProps[i];
+        if (prop.isStageCone) continue;
+        prop.body.collisionFilterMask = bodyInTerrainCut(prop.body) ? ~FILTER_GROUND : -1;
+    }
+}
+
+function polygonToShapeXZ(points) {
+    const shape = new THREE.Shape();
+    shape.moveTo(points[0].x, -points[0].z);
+    for (let i = 1; i < points.length; i++) {
+        shape.lineTo(points[i].x, -points[i].z);
+    }
+    shape.closePath();
+    return shape;
+}
+
+function shapeGeometryOnXZ(points, y) {
+    const geo = new THREE.ShapeGeometry(polygonToShapeXZ(points));
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, y, 0);
+    return geo;
+}
+
+function geometryToTrimesh(geometry) {
+    const pos = geometry.attributes.position;
+    const vertices = [];
+    for (let i = 0; i < pos.count; i++) {
+        vertices.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+    }
+    let indices;
+    if (geometry.index) {
+        indices = Array.from(geometry.index.array);
+    } else {
+        indices = [];
+        for (let i = 0; i < pos.count; i++) indices.push(i);
+    }
+    return new CANNON.Trimesh(vertices, indices);
+}
+
+function addStampPhysicsMesh(stamp, mesh) {
+    stamp.sensorMeshes.push(mesh);
+    if (typeof collisionSys !== 'undefined' && collisionSys.addTerrainMesh) {
+        collisionSys.addTerrainMesh(mesh);
+    }
+}
+
+function addReliefSensorWalls(stamp) {
+    const pts = stamp.points;
+    const wallHeight = Math.max(2.5, Math.abs(stamp.height));
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const len = Math.hypot(dx, dz);
+        if (len < 0.08) continue;
+
+        const wall = new THREE.Mesh(
+            new THREE.BoxGeometry(0.10, wallHeight, len),
+            stampMats.sensorWall,
+        );
+        wall.position.set(
+            (a.x + b.x) * 0.5,
+            wallHeight * 0.5,
+            (a.z + b.z) * 0.5,
+        );
+        wall.rotation.y = Math.atan2(dx, dz);
+        wall.userData.terrainStamp = stamp;
+        wall.userData.terrainHeight = stamp.height;
+        wall.userData.sensorOnly = true;
+        stamp.group.add(wall);
+        wall.updateMatrixWorld(true);
+        addStampPhysicsMesh(stamp, wall);
+    }
+}
+
+function addStampTrimesh(stamp, geometry) {
+    try {
+        const body = new CANNON.Body({ mass: 0, material: groundMaterial });
+        body.collisionFilterGroup = FILTER_TERRAIN;
+        body.collisionFilterMask = -1;
+        body.addShape(geometryToTrimesh(geometry));
+        physicsWorld.addBody(body);
+        stamp.bodies.push(body);
+    } catch (err) {
+        // Trimesh can reject degenerate triangles — skip physics for this piece.
+    }
+}
+
+function buildReliefGeometry(pts, elevation) {
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < pts.length; i++) {
+        minX = Math.min(minX, pts[i].x);
+        maxX = Math.max(maxX, pts[i].x);
+        minZ = Math.min(minZ, pts[i].z);
+        maxZ = Math.max(maxZ, pts[i].z);
+    }
+    const maxD = maxInteriorEdgeDist(pts);
+    const cols = Math.max(6, Math.ceil((maxX - minX) / STAMP_BOWL_STEP));
+    const rows = Math.max(6, Math.ceil((maxZ - minZ) / STAMP_BOWL_STEP));
+    const verts = [];
+    const colors = [];
+    const indices = [];
+
+    function heightAt(x, z) {
+        if (!pointInPolygon(x, z, pts)) return 0;
+        const t = Math.min(1, minDistToEdges(x, z, pts) / Math.max(0.12, maxD * 0.85));
+        const s = t * t * (3 - 2 * t);
+        return elevation * s;
+    }
+
+    function vert(x, z) {
+        const y = heightAt(x, z);
+        const i = verts.length / 3;
+        verts.push(x, y, z);
+        const strength = Math.min(1, Math.abs(y) / Math.max(0.1, Math.abs(elevation)));
+        const low = elevation > 0 ? new THREE.Color(0x315b45) : new THREE.Color(0x18243b);
+        const high = elevation > 0 ? new THREE.Color(0x9a8154) : new THREE.Color(0x456b88);
+        low.lerp(high, strength);
+        colors.push(low.r, low.g, low.b);
+        return i;
+    }
+
+    for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+            const x0 = minX + (i / cols) * (maxX - minX);
+            const z0 = minZ + (j / rows) * (maxZ - minZ);
+            const x1 = minX + ((i + 1) / cols) * (maxX - minX);
+            const z1 = minZ + ((j + 1) / rows) * (maxZ - minZ);
+            const corners = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+            let insideN = 0;
+            for (let k = 0; k < 4; k++) {
+                if (pointInPolygon(corners[k][0], corners[k][1], pts)) insideN += 1;
+            }
+            if (insideN < 3) continue;
+            const a = vert(x0, z0);
+            const b = vert(x1, z0);
+            const c = vert(x1, z1);
+            const d = vert(x0, z1);
+            indices.push(a, b, c, a, c, d);
+        }
+    }
+    if (verts.length < 9 || indices.length < 3) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+}
+
+function addPitWalls(stamp, depth) {
+    const pts = stamp.points;
+    const thick = STAMP_WALL_THICK;
+    const inward = polygonSignedAreaXZ(pts) > 0 ? 1 : -1;
+    const wallH = depth + 0.10;
+    const wallY = -depth * 0.5 + 0.05;
+    for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const len = Math.hypot(dx, dz);
+        if (len < 0.08) continue;
+        const nx = inward * (-dz / len);
+        const nz = inward * (dx / len);
+        const midX = (a.x + b.x) * 0.5 + nx * (thick * 0.45);
+        const midZ = (a.z + b.z) * 0.5 + nz * (thick * 0.45);
+        const angle = Math.atan2(dx, dz);
+        const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(thick, wallH, len),
+            stampMats.pitWall,
+        );
+        mesh.position.set(midX, wallY, midZ);
+        mesh.rotation.y = angle;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData.terrainStamp = stamp;
+        stamp.group.add(mesh);
+        addStampPhysicsMesh(stamp, mesh);
+
+        const body = new CANNON.Body({ mass: 0, material: groundMaterial });
+        body.collisionFilterGroup = FILTER_TERRAIN;
+        body.collisionFilterMask = -1;
+        body.addShape(new CANNON.Box(new CANNON.Vec3(thick * 0.5, wallH * 0.5, len * 0.5)));
+        body.position.set(midX, wallY, midZ);
+        body.quaternion.setFromEuler(0, angle, 0);
+        physicsWorld.addBody(body);
+        stamp.bodies.push(body);
+    }
+}
+
+function clearStampVisual(stamp) {
+    for (let i = 0; i < stamp.sensorMeshes.length; i++) {
+        if (typeof collisionSys !== 'undefined' && collisionSys.removeTerrainMesh) {
+            collisionSys.removeTerrainMesh(stamp.sensorMeshes[i]);
+        }
+    }
+    stamp.sensorMeshes.length = 0;
+    for (let i = 0; i < stamp.bodies.length; i++) {
+        physicsWorld.removeBody(stamp.bodies[i]);
+    }
+    stamp.bodies.length = 0;
+    while (stamp.group.children.length > 0) {
+        const ch = stamp.group.children[0];
+        stamp.group.remove(ch);
+        if (ch.geometry) ch.geometry.dispose();
+    }
+}
+
+function addStampOutline(stamp) {
+    const pts = stamp.points;
+    const verts = [];
+    for (let i = 0; i < pts.length; i++) {
+        verts.push(pts[i].x, 0.05, pts[i].z);
+    }
+    verts.push(pts[0].x, 0.05, pts[0].z);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    const line = new THREE.Line(geo, selectedStamp === stamp ? stampMats.outlineSel : stampMats.outline);
+    line.userData.terrainStamp = stamp;
+    stamp.group.add(line);
+    stamp.outline = line;
+}
+
+function rebuildStampMesh(stamp) {
+    clearStampVisual(stamp);
+    stamp.maxInteriorDist = maxInteriorEdgeDist(stamp.points);
+    const h = stamp.height;
+    if (Math.abs(h) < STAMP_FLAT_EPS) {
+        const fill = new THREE.Mesh(shapeGeometryOnXZ(stamp.points, 0.03), stampMats.flat);
+        fill.receiveShadow = true;
+        fill.userData.terrainStamp = stamp;
+        stamp.group.add(fill);
+        addStampOutline(stamp);
+        rebuildArenaFloor();
+        return;
+    }
+    const reliefGeo = buildReliefGeometry(stamp.points, h);
+    if (reliefGeo) {
+        const relief = new THREE.Mesh(reliefGeo, stampMats.relief);
+        relief.receiveShadow = true;
+        relief.castShadow = h > 0;
+        relief.userData.terrainStamp = stamp;
+        stamp.group.add(relief);
+
+        // A terrain-conforming wire grid makes slope and depth readable.
+        const reliefGrid = new THREE.Mesh(reliefGeo.clone(), stampMats.reliefGrid);
+        reliefGrid.position.y = 0.012;
+        reliefGrid.userData.terrainStamp = stamp;
+        stamp.group.add(reliefGrid);
+
+        addStampTrimesh(stamp, reliefGeo);
+        addReliefSensorWalls(stamp);
+    }
+    addStampOutline(stamp);
+    rebuildArenaFloor();
+}
+
+function holePointsForShape(points) {
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+        const j = (i + 1) % points.length;
+        const yi = -points[i].z;
+        const yj = -points[j].z;
+        area += points[i].x * yj - points[j].x * yi;
+    }
+    return area < 0 ? points : points.slice().reverse();
+}
+
+function rebuildArenaFloor() {
+    plane.geometry.dispose();
+    const holes = terrainStamps.filter((s) => s.height < -STAMP_FLAT_EPS && s.points.length >= 3);
+    if (holes.length === 0) {
+        plane.geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE);
+        if (gridHelper) gridHelper.visible = true;
+        return;
+    }
+    const h = PLANE_HALF;
+    const shape = new THREE.Shape();
+    shape.moveTo(-h, -h);
+    shape.lineTo(h, -h);
+    shape.lineTo(h, h);
+    shape.lineTo(-h, h);
+    shape.closePath();
+    for (let i = 0; i < holes.length; i++) {
+        const pts = holePointsForShape(holes[i].points);
+        const hole = new THREE.Path();
+        hole.moveTo(pts[0].x, -pts[0].z);
+        for (let n = 1; n < pts.length; n++) {
+            hole.lineTo(pts[n].x, -pts[n].z);
+        }
+        hole.closePath();
+        shape.holes.push(hole);
+    }
+    try {
+        plane.geometry = new THREE.ShapeGeometry(shape);
+    } catch (err) {
+        plane.geometry = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE);
+    }
+    if (gridHelper) {
+        gridHelper.visible = holes.length === 0;
+    }
+}
+
+function stampHeightCaption(h) {
+    if (Math.abs(h) < STAMP_FLAT_EPS) return t('stampHeightFlat');
+    if (h > 0) return t('stampHeightCavity', { m: Number(h).toFixed(1) });
+    return t('stampHeightBowl', { m: Math.abs(h).toFixed(1) });
+}
+
+function updateStampHeightUi() {
+    const slider = document.getElementById('stampHeight');
+    const valueEl = document.getElementById('stampHeightValue');
+    const h = selectedStamp ? selectedStamp.height : 0;
+    if (slider) {
+        slider.disabled = !selectedStamp;
+        slider.value = String(h);
+    }
+    if (valueEl) valueEl.textContent = stampHeightCaption(h);
+}
+
+function selectStamp(stamp) {
+    if (selectedStamp && selectedStamp.outline) {
+        selectedStamp.outline.material = stampMats.outline;
+    }
+    selectedStamp = stamp;
+    if (selectedStamp && selectedStamp.outline) {
+        selectedStamp.outline.material = stampMats.outlineSel;
+    }
+    updateStampHeightUi();
+}
+
+function findStampFromMesh(object) {
+    let node = object;
+    while (node) {
+        if (node.userData?.terrainStamp) return node.userData.terrainStamp;
+        node = node.parent;
+    }
+    return null;
+}
+
+function terrainStampPickMeshes() {
+    const list = [];
+    for (let i = 0; i < terrainStamps.length; i++) {
+        const g = terrainStamps[i].group;
+        for (let n = 0; n < g.children.length; n++) {
+            if (!g.children[n].userData?.sensorOnly) list.push(g.children[n]);
+        }
+    }
+    return list;
+}
+
+function createTerrainStamp(points) {
+    const stamp = {
+        points,
+        height: 0,
+        group: new THREE.Group(),
+        bodies: [],
+        sensorMeshes: [],
+        outline: null,
+        maxInteriorDist: maxInteriorEdgeDist(points),
+    };
+    stamp.group.userData.terrainStamp = stamp;
+    terrainStampGroup.add(stamp.group);
+    terrainStamps.push(stamp);
+    rebuildStampMesh(stamp);
+    selectStamp(stamp);
+    return stamp;
+}
+
+function removeTerrainStamp(stamp) {
+    if (!stamp) return;
+    clearStampVisual(stamp);
+    terrainStampGroup.remove(stamp.group);
+    const idx = terrainStamps.indexOf(stamp);
+    if (idx >= 0) terrainStamps.splice(idx, 1);
+    if (selectedStamp === stamp) selectedStamp = null;
+    rebuildArenaFloor();
+    updateStampHeightUi();
+}
+
+function setStampHeight(stamp, height) {
+    if (!stamp) return;
+    const next = Math.max(STAMP_HEIGHT_MIN, Math.min(STAMP_HEIGHT_MAX, height));
+    stamp.height = Math.abs(next) < STAMP_FLAT_EPS ? 0 : next;
+    rebuildStampMesh(stamp);
+    updateStampHeightUi();
+}
+
+function applyRoverTerrain(dt) {
+    const floorY = roverTerrainHeight();
+    if (robot.position.y > floorY + 0.04) {
+        robotVy += ROVER_GRAVITY * dt;
+        robot.position.y += robotVy * dt;
+        if (robot.position.y <= floorY) {
+            robot.position.y = floorY;
+            robotVy = 0;
+        }
+    } else {
+        robot.position.y = floorY;
+        robotVy = 0;
+    }
+    robot.updateMatrixWorld();
+}
+
+function setDrawTerrainMode(on) {
+    drawTerrainMode = on ? 1 : 0;
+    if (!drawTerrainMode) cancelTerrainStroke();
+    const btn = document.getElementById('drawTerrainBtn');
+    if (btn) {
+        btn.classList.toggle('active', !!drawTerrainMode);
+        btn.setAttribute('aria-pressed', drawTerrainMode ? 'true' : 'false');
+    }
+    viewport.classList.toggle('drawing-terrain', !!drawTerrainMode);
+    if (drawTerrainMode) {
+        if (moveObjectsEl) {
+            moveObjectsEl.checked = false;
+            moveObjectsMode = 0;
+        }
+        deselectProp();
+        setRobotSelected(0);
+        if (typeof statusEl !== 'undefined' && statusEl) {
+            statusEl.textContent = t('modeDrawTerrain');
+        }
+    } else if (typeof updateModeUi === 'function') {
+        updateModeUi();
+    }
+    if (typeof syncCameraControls === 'function') syncCameraControls();
+}
+
+function beginTerrainStroke(x, z) {
+    isDrawingStroke = 1;
+    const c = clampToArena(x, z);
+    drawStrokePoints = [{ x: c.x, z: c.z }];
+    updateDrawPreview();
+}
+
+function appendTerrainStroke(x, z) {
+    const c = clampToArena(x, z);
+    const last = drawStrokePoints[drawStrokePoints.length - 1];
+    if (last && Math.hypot(c.x - last.x, c.z - last.z) < STAMP_DRAW_STEP) return;
+    drawStrokePoints.push({ x: c.x, z: c.z });
+    updateDrawPreview();
+}
+
+function updateDrawPreview() {
+    const pts = drawStrokePoints;
+    if (pts.length < 1) {
+        drawPreviewLine.visible = false;
+        return;
+    }
+    const verts = [];
+    for (let i = 0; i < pts.length; i++) {
+        verts.push(pts[i].x, 0.06, pts[i].z);
+    }
+    drawPreviewLine.geometry.dispose();
+    drawPreviewLine.geometry = new THREE.BufferGeometry();
+    drawPreviewLine.geometry.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    drawPreviewLine.visible = true;
+}
+
+function cancelTerrainStroke() {
+    isDrawingStroke = 0;
+    drawStrokePoints = [];
+    drawPreviewLine.visible = false;
+}
+
+function finishTerrainStroke() {
+    const pts = drawStrokePoints.slice();
+    cancelTerrainStroke();
+    if (pts.length >= 2) {
+        const first = pts[0];
+        const last = pts[pts.length - 1];
+        if (Math.hypot(last.x - first.x, last.z - first.z) < 0.45) pts.pop();
+    }
+    if (pts.length < STAMP_MIN_POINTS || polygonAreaXZ(pts) < STAMP_MIN_AREA) {
+        if (typeof addLog === 'function') addLog(t('logStampTooSmall'));
+        if (typeof statusEl !== 'undefined' && statusEl) statusEl.textContent = t('logStampTooSmall');
+        return;
+    }
+    createTerrainStamp(pts);
+    setDrawTerrainMode(0);
+    if (typeof addLog === 'function') addLog(t('logStampDrawn', { n: pts.length }));
+}
+
+const COLLISION_RESOLVE_STEP = 0.08;
+const MOTION_SWEEP_STEP = 0.08;
+const ROTATION_SWEEP_STEP = 0.05;
 let lastHitTest = { clear: 1, object: null };
 
 function hitInsetMeters() {
-    const rect = renderer.domElement.getBoundingClientRect();
-    if (rect.width < 2) return 0.08;
-    const origin = new THREE.Vector3(robot.position.x, 0.50, robot.position.z);
-    origin.project(camera);
-    const ndc = (HIT_PIXELS * 2) / rect.width;
-    const shifted = origin.clone();
-    shifted.x += ndc;
-    shifted.unproject(camera);
-    origin.unproject(camera);
-    const meters = Math.hypot(shifted.x - origin.x, shifted.z - origin.z);
-    if (meters < 0.04) return 0.04;
-    if (meters > 0.25) return 0.25;
-    return meters;
+    // Collision is world-space only: never shrink it according to screen pixels.
+    return 0;
 }
 
-function roverFootprintCorners(x, z, rotY, inset) {
-    const hw = 1.20 - inset;
+function roverFootprintCorners(x, z, rotY, inset = 0) {
+    const hw = ROBOT_COLLISION.halfWidth - inset;
     const hl = ROBOT_COLLISION.halfLength - inset;
     const rightX = Math.cos(rotY);
     const rightZ = -Math.sin(rotY);
@@ -818,6 +1582,45 @@ function polygonsOverlap(a, b) {
     return 1;
 }
 
+function segmentsIntersect2d(a, b, c, d) {
+    const cross = (p, q, r) => (
+        (q.x - p.x) * (r.z - p.z) - (q.z - p.z) * (r.x - p.x)
+    );
+    const abC = cross(a, b, c);
+    const abD = cross(a, b, d);
+    const cdA = cross(c, d, a);
+    const cdB = cross(c, d, b);
+    return ((abC > 0 && abD < 0) || (abC < 0 && abD > 0))
+        && ((cdA > 0 && cdB < 0) || (cdA < 0 && cdB > 0));
+}
+
+function polygonsIntersectGeneral(a, b) {
+    for (let i = 0; i < a.length; i++) {
+        if (pointInPolygon(a[i].x, a[i].z, b)) return 1;
+    }
+    for (let i = 0; i < b.length; i++) {
+        if (pointInPolygon(b[i].x, b[i].z, a)) return 1;
+    }
+    for (let i = 0; i < a.length; i++) {
+        const aNext = a[(i + 1) % a.length];
+        for (let j = 0; j < b.length; j++) {
+            const bNext = b[(j + 1) % b.length];
+            if (segmentsIntersect2d(a[i], aNext, b[j], bNext)) return 1;
+        }
+    }
+    return 0;
+}
+
+function terrainStampOverlap(rover) {
+    for (let i = 0; i < terrainStamps.length; i++) {
+        const stamp = terrainStamps[i];
+        if (Math.abs(stamp.height) < STAMP_FLAT_EPS) continue;
+        if (stamp.height < 0 && !sensorConfig.floorIr) continue;
+        if (polygonsIntersectGeneral(rover, stamp.points)) return i;
+    }
+    return -1;
+}
+
 function getRobotCollisionBox(target = new THREE.Box3()) {
     const inset = hitInsetMeters();
     const c = roverFootprintCorners(robot.position.x, robot.position.z, robot.rotation.y, inset);
@@ -831,8 +1634,8 @@ function getRobotCollisionBox(target = new THREE.Box3()) {
         if (c[i].z < minZ) minZ = c[i].z;
         if (c[i].z > maxZ) maxZ = c[i].z;
     }
-    target.min.set(minX, 0, minZ);
-    target.max.set(maxX, ROBOT_COLLISION.centerY + ROBOT_COLLISION.halfHeight, maxZ);
+    target.min.set(minX, robot.position.y, minZ);
+    target.max.set(maxX, robot.position.y + ROBOT_COLLISION.centerY + ROBOT_COLLISION.halfHeight, maxZ);
     return target;
 }
 
@@ -867,6 +1670,17 @@ function queryPose(x, z, rotY) {
             };
             return lastHitTest;
         }
+    }
+    const terrainId = terrainStampOverlap(rover);
+    if (terrainId >= 0) {
+        lastHitTest = {
+            clear: 0,
+            kind: 'terrain',
+            id: terrainId,
+            x: Number(x.toFixed(2)),
+            z: Number(z.toFixed(2)),
+        };
+        return lastHitTest;
     }
     lastHitTest = { clear: 1, kind: null, id: -1, x: null, z: null };
     return lastHitTest;
@@ -909,6 +1723,17 @@ function poseBlocksMotion(x, z, rotY) {
                 return 1;
             }
         }
+        const terrainId = terrainStampOverlap(rover);
+        if (terrainId >= 0) {
+            lastHitTest = {
+                clear: 0,
+                kind: 'terrain',
+                id: terrainId,
+                x: Number(x.toFixed(2)),
+                z: Number(z.toFixed(2)),
+            };
+            return 1;
+        }
         lastHitTest = { clear: 1, kind: null, id: -1, x: null, z: null };
         return 0;
     }
@@ -923,19 +1748,19 @@ function depenetrateRobot() {
     if (!sensorConfig.hitTest) return 0;
     const hit = queryPose(robot.position.x, robot.position.z, robot.rotation.y);
     if (hit.clear) return 0;
-    const step = hitInsetMeters();
-    const dx = robot.position.x - (hit.x ?? robot.position.x);
-    const dz = robot.position.z - (hit.z ?? robot.position.z);
-    const mag = Math.hypot(dx, dz) || 1;
-    for (let n = 1; n <= 8; n++) {
-        const nx = robot.position.x + (dx / mag) * step * n;
-        const nz = robot.position.z + (dz / mag) * step * n;
-        if (queryPose(nx, nz, robot.rotation.y).clear) {
-            robot.position.x = nx;
-            robot.position.z = nz;
-            clampRobotPosition();
-            syncRobotPhysicsBody();
-            return 1;
+    for (let ring = 1; ring <= 24; ring++) {
+        const radius = COLLISION_RESOLVE_STEP * ring;
+        for (let i = 0; i < 16; i++) {
+            const angle = (i / 16) * Math.PI * 2;
+            const nx = robot.position.x + Math.cos(angle) * radius;
+            const nz = robot.position.z + Math.sin(angle) * radius;
+            if (queryPose(nx, nz, robot.rotation.y).clear) {
+                robot.position.x = nx;
+                robot.position.z = nz;
+                clampRobotPosition();
+                syncRobotPhysicsBody();
+                return 1;
+            }
         }
     }
     return 1;
@@ -981,7 +1806,7 @@ radarGroup.position.set(0, 0.08, 0);
 const radarArcs = [];
 
 const irBand = new THREE.Mesh(
-    new THREE.BoxGeometry(2.00, 0.04, 2.00),
+    new THREE.BoxGeometry(2.65, 0.04, IR_RANGE),
     new THREE.MeshBasicMaterial({
         color: 0xffcc44,
         transparent: true,
@@ -989,7 +1814,7 @@ const irBand = new THREE.Mesh(
         depthWrite: false,
     }),
 );
-irBand.position.set(0, 0.06, 2.50);
+irBand.position.set(0, 0.06, ROBOT_COLLISION.halfLength + IR_RANGE / 2);
 radarGroup.add(irBand);
 
 const usCone = new THREE.Mesh(
@@ -1010,7 +1835,7 @@ const scanLinesGroup = new THREE.Group();
 scanLinesGroup.userData.sensorVisual = true;
 robot.add(scanLinesGroup);
 scanLinesGroup.position.set(0, 1.35, 0);
-const scanRaysCount = 13;
+const scanRaysCount = 36;
 const scanRays = [];
 for (let i = 0; i < scanRaysCount; i++) {
     const geo = new THREE.BufferGeometry().setFromPoints([
@@ -1024,6 +1849,23 @@ for (let i = 0; i < scanRaysCount; i++) {
 
 // 💥 Collision marker — red X on impact point
 const collisionMarkers = [];
+function triggerSpringBumper() {
+    if (!sensorConfig.hitTest) return;
+    bumperCompression = 1;
+}
+
+function updateSpringBumper(dt) {
+    bumperCompression = Math.max(0, bumperCompression - dt * 3.5);
+    bumperBar.position.z = 1.72 - bumperCompression * 0.28;
+    bumperSprings.forEach((spring) => {
+        spring.scale.z = Math.max(0.25, 1 - bumperCompression * 0.70);
+        spring.position.z = 1.52 - bumperCompression * 0.12;
+    });
+    const on = sensorConfig.hitTest ? true : false;
+    bumperBar.visible = on;
+    bumperSprings.forEach((spring) => { spring.visible = on; });
+}
+
 function markCollision(position) {
     const group = new THREE.Group();
     const geo = new THREE.BoxGeometry(0.8, 0.1, 0.2);
@@ -1155,6 +1997,17 @@ function pickSceneTarget(clientX, clientY) {
         }
     }
 
+    const stampMeshes = terrainStampPickMeshes();
+    if (stampMeshes.length > 0) {
+        const stampHits = raycaster.intersectObjects(stampMeshes, false);
+        if (stampHits.length > 0) {
+            const stamp = findStampFromMesh(stampHits[0].object);
+            if (stamp) {
+                return { type: 'stamp', stamp, point: stampHits[0].point };
+            }
+        }
+    }
+
     const floorHits = raycaster.intersectObject(plane, false);
     if (floorHits.length > 0) {
         return { type: 'floor', point: floorHits[0].point };
@@ -1268,8 +2121,8 @@ function syncPropInspector(prop) {
 }
 
 function syncCameraControls() {
-    // Move-objects mode locks orbit (no zoom / pan / turn) so drags move props.
-    const lock = moveObjectsMode || isDraggingProp || isDraggingRobot;
+    // Move-objects / draw-terrain lock orbit so drags sculpt or move props.
+    const lock = moveObjectsMode || isDraggingProp || isDraggingRobot || drawTerrainMode || isDrawingStroke;
     controls.enabled = !lock;
 }
 
@@ -1384,7 +2237,7 @@ function moveRobotOnPlane(clientX, clientY, snapGrid = false) {
         z = Math.round(z);
     }
     const clamped = clampToArena(x, z);
-    robot.position.set(clamped.x, robot.position.y, clamped.z);
+    robot.position.set(clamped.x, terrainHeightAt(clamped.x, clamped.z), clamped.z);
 }
 
 function movePropToScreen(prop, clientX, clientY) {
@@ -1421,7 +2274,9 @@ function updateModeUi() {
     }
     if (typeof statusEl === 'undefined') return;
     if (animating) return;
-    if (moveObjectsMode) {
+    if (drawTerrainMode) {
+        statusEl.textContent = t('modeDrawTerrain');
+    } else if (moveObjectsMode) {
         statusEl.textContent = t('modeMoveObjects');
     } else if (mode === 'objects') {
         statusEl.textContent = t('modePlaceObjects');
@@ -1444,7 +2299,7 @@ function placeObjectAtScreen(clientX, clientY, objectType) {
     const scale = Number.isFinite(parseFloat(scaleEl?.value))
         ? parseFloat(scaleEl.value)
         : DEFAULT_PROP_SCALE;
-    const placementTargets = [plane, ...physicsProps.map((p) => p.mesh), ...obstacles];
+    const placementTargets = [plane, ...terrainStampPickMeshes(), ...physicsProps.map((p) => p.mesh), ...obstacles];
     const hits = raycaster.intersectObjects(placementTargets, false);
     if (hits.length === 0) return false;
 
@@ -1455,7 +2310,7 @@ function placeObjectAtScreen(clientX, clientY, objectType) {
     const clamped = clampToArena(rawX, rawZ);
     const x = clamped.x;
     const z = clamped.z;
-    const y = hit.point.y + halfH + 0.02;
+    const y = terrainHeightAt(x, z) + halfH + 0.02;
 
     const entry = createPhysicsProp(objectType, x, y, z, mass, scale);
     selectProp(entry);
@@ -1589,6 +2444,21 @@ function onPointerDown(e) {
     pointerDownPos = { x: e.clientX, y: e.clientY };
     activePointerId = e.pointerId;
 
+    if (drawTerrainMode) {
+        const hit = raycastDragPlane(e.clientX, e.clientY, 0);
+        if (!hit) {
+            resetGestureState();
+            return;
+        }
+        gestureTarget = 'draw';
+        beginTerrainStroke(hit.x, hit.z);
+        capturePointerSafe(e.pointerId);
+        e.preventDefault();
+        e.stopPropagation();
+        syncCameraControls();
+        return;
+    }
+
     if (moveObjectsMode) {
         const prop = raycastPropAt(e.clientX, e.clientY);
         if (prop) {
@@ -1619,12 +2489,26 @@ function onPointerDown(e) {
         setRobotSelected(1);
         e.preventDefault();
         e.stopPropagation();
+    } else if (pick.type === 'stamp') {
+        deselectProp();
+        setRobotSelected(0);
+        selectStamp(pick.stamp);
+        e.preventDefault();
+        e.stopPropagation();
     }
     syncCameraControls();
 }
 
 function onPointerMove(e) {
     if (activePointerId !== null && e.pointerId !== activePointerId) return;
+
+    if (isDrawingStroke) {
+        const hit = raycastDragPlane(e.clientX, e.clientY, 0);
+        if (hit) appendTerrainStroke(hit.x, hit.z);
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+    }
 
     if (gestureTarget === 'prop' && gestureProp && pointerDownPos && !isDraggingProp) {
         const dx = e.clientX - pointerDownPos.x;
@@ -1671,7 +2555,9 @@ function onPointerUp(e) {
 
     releasePointerSafe(e.pointerId);
 
-    if (isDraggingProp) {
+    if (isDrawingStroke) {
+        finishTerrainStroke();
+    } else if (isDraggingProp) {
         endPropDrag(e.clientX, e.clientY, true);
     } else if (isDraggingRobot) {
         endRobotDrag(e.clientX, e.clientY, true);
@@ -1692,6 +2578,7 @@ function onPointerUp(e) {
 
 function onPointerCancel(e) {
     releasePointerSafe(e.pointerId);
+    if (isDrawingStroke) cancelTerrainStroke();
     if (isDraggingProp) endPropDrag(e.clientX, e.clientY, true);
     if (isDraggingRobot) {
         endRobotDrag(e.clientX, e.clientY, true);
@@ -1702,8 +2589,12 @@ function onPointerCancel(e) {
 }
 
 function updateHoverCursor(clientX, clientY) {
-    if (isDraggingProp || isDraggingRobot) {
-        interactionCanvas().style.cursor = 'grabbing';
+    if (isDraggingProp || isDraggingRobot || isDrawingStroke) {
+        interactionCanvas().style.cursor = isDrawingStroke ? 'crosshair' : 'grabbing';
+        return;
+    }
+    if (drawTerrainMode) {
+        interactionCanvas().style.cursor = 'crosshair';
         return;
     }
     if (moveObjectsMode) {
@@ -1713,6 +2604,8 @@ function updateHoverCursor(clientX, clientY) {
     const pick = pickSceneTarget(clientX, clientY);
     if (pick.type === 'prop' || pick.type === 'robot') {
         interactionCanvas().style.cursor = 'grab';
+    } else if (pick.type === 'stamp') {
+        interactionCanvas().style.cursor = 'pointer';
     } else {
         interactionCanvas().style.cursor = '';
     }
@@ -1758,6 +2651,7 @@ const nav = createNavSystem({
     LIDAR_RANGE,
     ULTRASONIC_RANGE,
     IR_RANGE,
+    FLOOR_IR_RANGE,
     get BUILD_LIMIT() { return BUILD_LIMIT; },
     MAX_SPEED,
     MAX_OMEGA,
@@ -1792,7 +2686,7 @@ const CUSTOM_ALLOW = [
     'E', 'log', 'exp', 'sign', 'parseFloat', 'parseInt', 'isFinite', 'isNaN',
     'Number', 'toFixed', 'length', 'robotX', 'robotZ', 'heading',
     'waypointX', 'waypointZ', 'waypointDist', 'headingErr', 'blocked',
-    'forwardClear', 'nearest', 'lidar', 'ultrasonic', 'ir', 'MAX_SPEED',
+    'forwardClear', 'nearest', 'lidar', 'ultrasonic', 'ir', 'floorIr', 'MAX_SPEED',
     'MAX_OMEGA', 'draw', 'v', 'omega', 'in', 'of',
 ];
 const customPadEl = document.getElementById('customPad');
@@ -1812,7 +2706,7 @@ function customSetupText() {
             '//   robotX, robotZ, heading',
             '//   waypointX, waypointZ, waypointDist',
             '//   headingErr, blocked, forwardClear, nearest',
-            '//   lidar[36], ultrasonic[3], ir[3]',
+            '//   lidar[36], ultrasonic[3], ir[3], floorIr[3]',
             '//   MAX_SPEED, MAX_OMEGA',
             '// Math: sin cos atan2 hypot abs max min PI',
             '// draw(x, z)  — marca un punto en el piso',
@@ -1834,7 +2728,7 @@ function customSetupText() {
         '//   robotX, robotZ, heading',
         '//   waypointX, waypointZ, waypointDist',
         '//   headingErr, blocked, forwardClear, nearest',
-        '//   lidar[36], ultrasonic[3], ir[3]',
+        '//   lidar[36], ultrasonic[3], ir[3], floorIr[3]',
         '//   MAX_SPEED, MAX_OMEGA',
         '// Math: sin cos atan2 hypot abs max min PI',
         '// draw(x, z)  — mark a point on the floor',
@@ -1983,6 +2877,7 @@ function wrapCustomLoop(src) {
         + 'const lidar = api.lidar;\n'
         + 'const ultrasonic = api.ultrasonic;\n'
         + 'const ir = api.ir;\n'
+        + 'const floorIr = api.floorIr;\n'
         + 'const MAX_SPEED = api.MAX_SPEED;\n'
         + 'const MAX_OMEGA = api.MAX_OMEGA;\n'
         + 'const Math = api.Math;\n'
@@ -2034,6 +2929,12 @@ function runCustomLoop(ctx) {
             ir[i] = ctx.reading.ir[i];
         }
     }
+    const floorIr = [null, null, null];
+    if (ctx.reading && ctx.reading.floorIr) {
+        for (let i = 0; i < 3 && i < ctx.reading.floorIr.length; i++) {
+            floorIr[i] = ctx.reading.floorIr[i];
+        }
+    }
     const api = {
         robotX: ctx.robot.position.x,
         robotZ: ctx.robot.position.z,
@@ -2048,6 +2949,7 @@ function runCustomLoop(ctx) {
         lidar,
         ultrasonic,
         ir,
+        floorIr,
         MAX_SPEED: ctx.MAX_SPEED,
         MAX_OMEGA: ctx.MAX_OMEGA,
         Math,
@@ -2149,7 +3051,8 @@ function sensorListLabel() {
     if (sensorConfig.lidar) parts.push('LIDAR');
     if (sensorConfig.ultrasonic) parts.push('US');
     if (sensorConfig.ir) parts.push('IR×3');
-    if (sensorConfig.hitTest) parts.push('Hit');
+    if (sensorConfig.floorIr) parts.push('Floor IR');
+    if (sensorConfig.hitTest) parts.push('Bumper');
     return parts.join(', ');
 }
 
@@ -2162,44 +3065,87 @@ function updateSensorStatus() {
 }
 
 function applyMotion(v, omega, dt) {
-    const rot0 = robot.rotation.y;
-    const rot1 = rot0 + omega * dt;
     const x0 = robot.position.x;
     const z0 = robot.position.z;
-    const fwdX = Math.sin(rot1);
-    const fwdZ = Math.cos(rot1);
-    const xFull = x0 + fwdX * v * dt;
-    const zFull = z0 + fwdZ * v * dt;
+    const yaw0 = robot.rotation.y;
+    const requestedDistance = Math.abs(v * dt);
+    const requestedRotation = Math.abs(omega * dt);
+    const steps = Math.max(
+        1,
+        Math.ceil(requestedDistance / MOTION_SWEEP_STEP),
+        Math.ceil(requestedRotation / ROTATION_SWEEP_STEP),
+    );
+    const stepDt = dt / steps;
+    let blocked = 0;
 
-    robot.rotation.y = rot1;
+    for (let i = 0; i < steps; i++) {
+        const nextRot = robot.rotation.y + omega * stepDt;
+        const nextX = robot.position.x + Math.sin(nextRot) * v * stepDt;
+        const nextZ = robot.position.z + Math.cos(nextRot) * v * stepDt;
+        if (poseBlocksMotion(nextX, nextZ, nextRot)) {
+            blocked = 1;
+            break;
+        }
+        robot.rotation.y = nextRot;
+        robot.position.x = nextX;
+        robot.position.z = nextZ;
+    }
+    // Keep yaw in (-π, π] so telemetry/recovery stay readable.
+    while (robot.rotation.y > Math.PI) robot.rotation.y -= Math.PI * 2;
+    while (robot.rotation.y < -Math.PI) robot.rotation.y += Math.PI * 2;
 
-    if (!poseBlocksMotion(xFull, zFull, rot1)) {
-        robot.position.x = xFull;
-        robot.position.z = zFull;
-    } else if (sensorConfig.hitTest) {
+    if (blocked && sensorConfig.hitTest && !queryPose(
+        robot.position.x,
+        robot.position.z,
+        robot.rotation.y,
+    ).clear) {
         depenetrateRobot();
     }
     clampRobotPosition();
     syncRobotPhysicsBody();
 
-    const wheelSpin = v * dt * 2;
-    if (Math.abs(omega) > 0.01) {
-        wheels[0].rotation.x -= wheelSpin;
-        wheels[2].rotation.x -= wheelSpin;
-        wheels[1].rotation.x += wheelSpin;
-        wheels[3].rotation.x += wheelSpin;
-    } else {
-        wheels.forEach((w) => { w.rotation.x -= wheelSpin; });
-    }
-
-    const requestedDistance = Math.abs(v * dt);
     const actualDistance = Math.hypot(robot.position.x - x0, robot.position.z - z0);
+    const actualLinear = dt > 0 ? actualDistance * Math.sign(v) / dt : 0;
+    const actualOmega = dt > 0 ? (robot.rotation.y - yaw0) / dt : 0;
+    const leftLinear = actualLinear + actualOmega * ROBOT_COLLISION.halfWidth;
+    const rightLinear = actualLinear - actualOmega * ROBOT_COLLISION.halfWidth;
+    const wheelRadius = 0.5;
+    wheels[0].rotation.x -= leftLinear * dt / wheelRadius;
+    wheels[2].rotation.x -= leftLinear * dt / wheelRadius;
+    wheels[1].rotation.x -= rightLinear * dt / wheelRadius;
+    wheels[3].rotation.x -= rightLinear * dt / wheelRadius;
+
+    if (blocked && sensorConfig.hitTest && v > 0) triggerSpringBumper();
     if (requestedDistance > 0.01 && actualDistance < requestedDistance * 0.10) return 1;
     return 0;
 }
 
 function distToGoal(target) {
     return Math.hypot(target.x - robot.position.x, target.z - robot.position.z);
+}
+
+// Hit-test on: any part of the rover footprint touching the waypoint counts.
+// Center tip does not need to sit on the marker.
+function waypointTouchedByHitTest(target) {
+    const footprint = roverFootprintCorners(
+        robot.position.x,
+        robot.position.z,
+        robot.rotation.y,
+        0,
+    );
+    if (pointInPolygon(target.x, target.z, footprint)) return 1;
+    // Marker radius ~0.32 m — count a near graze on the hull edge.
+    if (minDistToEdges(target.x, target.z, footprint) <= 0.35) return 1;
+    return 0;
+}
+
+function waypointReached(target) {
+    const dist = distToGoal(target);
+    if (dist <= WP_ACCEPT_RADIUS) return { ok: 1, dist };
+    if (sensorConfig.hitTest && waypointTouchedByHitTest(target)) {
+        return { ok: 1, dist };
+    }
+    return { ok: 0, dist };
 }
 
 function resetNavForWaypoint() {
@@ -2214,6 +3160,12 @@ function resetNavForWaypoint() {
     navState.forceRose = 0;
     navState.roseCircuits = 0;
     navState.roseLeftStart = 0;
+    navState.recoveryPhase = '';
+    navState.recoveryUntil = 0;
+    navState.recoveryCooldownUntil = 0;
+    navState.lastRecoverySide = 0;
+    navState.stuckSince = NaN;
+    navState.lastRecoveryLog = '';
 }
 
 function skipUnreachableWaypoint() {
@@ -2237,11 +3189,11 @@ function skipUnreachableWaypoint() {
 function checkWaypointMission() {
     if (pathIndex >= waypoints.length) return false;
     const target = waypoints[pathIndex];
-    const dist = distToGoal(target);
-    if (dist <= WP_ACCEPT_RADIUS) {
+    const reach = waypointReached(target);
+    if (reach.ok) {
         if (!waypointsPassed[pathIndex]) {
             waypointsPassed[pathIndex] = 1;
-            addLog(t('logPassed', { index: pathIndex, dist: dist.toFixed(2) }));
+            addLog(t('logPassed', { index: pathIndex, dist: reach.dist.toFixed(2) }));
             if (waypointMarkers[pathIndex]) {
                 waypointMarkers[pathIndex].material.color.setHex(0x00ffcc);
             }
@@ -2420,6 +3372,84 @@ if (exportTelemetryJsonBtn) exportTelemetryJsonBtn.addEventListener('click', exp
 const exportTelemetryCsvBtn = document.getElementById('exportTelemetryCsv');
 if (exportTelemetryCsvBtn) exportTelemetryCsvBtn.addEventListener('click', exportTelemetryCsv);
 
+const errorReportDialog = document.getElementById('errorReportDialog');
+const errorReportTextEl = document.getElementById('errorReportText');
+const copyErrorReportBtn = document.getElementById('copyErrorReportBtn');
+
+function buildErrorReport() {
+    const waypoint = waypoints[pathIndex] || null;
+    const navDebug = {
+        mode: navState.mode,
+        roseMode: navState.roseMode,
+        forceRose: navState.forceRose,
+        recoveryPhase: navState.recoveryPhase || null,
+        stuckSeconds: Number.isFinite(navState.stuckSince)
+            ? Math.max(0, Date.now() / 1000 - navState.stuckSince).toFixed(2)
+            : null,
+    };
+    const logLines = robotLog.slice(-40).map(
+        (row) => `${row.time}s ${row.pos}: ${row.message}`,
+    );
+    return [
+        'ROBOT DEBUG REPORT',
+        `Build: ${BUILD_STAMP}`,
+        `Algorithm: ${activeAlgo}`,
+        `Mission: ${animating ? 'running' : 'stopped'} · waypoint ${pathIndex}/${waypoints.length}`,
+        `Robot: x=${robot.position.x.toFixed(3)} y=${robot.position.y.toFixed(3)} z=${robot.position.z.toFixed(3)} heading=${robot.rotation.y.toFixed(3)}`,
+        `Target: ${waypoint ? `x=${waypoint.x} z=${waypoint.z}` : 'none'}`,
+        `Sensors: ${JSON.stringify(sensorConfig)}`,
+        `Navigation: ${JSON.stringify(navDebug)}`,
+        `Runtime errors:\n${runtimeErrors.length ? runtimeErrors.join('\n') : 'none'}`,
+        `Recent robot log:\n${logLines.length ? logLines.join('\n') : 'none'}`,
+        `Recent telemetry:\n${JSON.stringify(missionTelemetry.slice(-3), null, 2)}`,
+    ].join('\n\n');
+}
+
+function openErrorReport() {
+    if (!errorReportDialog || !errorReportTextEl) return;
+    errorReportTextEl.value = buildErrorReport();
+    if (typeof errorReportDialog.showModal === 'function') {
+        if (!errorReportDialog.open) errorReportDialog.showModal();
+    } else {
+        errorReportDialog.setAttribute('open', '');
+    }
+}
+
+function closeErrorReport() {
+    if (!errorReportDialog) return;
+    if (typeof errorReportDialog.close === 'function') errorReportDialog.close();
+    else errorReportDialog.removeAttribute('open');
+}
+
+function flashErrorReportCopy() {
+    if (!copyErrorReportBtn) return;
+    copyErrorReportBtn.textContent = t('errorReportCopied');
+    window.setTimeout(() => {
+        copyErrorReportBtn.textContent = t('copyErrorReportBtn');
+    }, 1500);
+}
+
+function copyErrorReport() {
+    if (!errorReportTextEl) return;
+    const text = errorReportTextEl.value;
+    const fallback = () => {
+        errorReportTextEl.focus();
+        errorReportTextEl.select();
+        document.execCommand('copy');
+        flashErrorReportCopy();
+    };
+    if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).then(flashErrorReportCopy).catch(fallback);
+    } else {
+        fallback();
+    }
+}
+
+document.getElementById('showErrorReportBtn')?.addEventListener('click', openErrorReport);
+document.getElementById('closeErrorReportBtn')?.addEventListener('click', closeErrorReport);
+document.getElementById('closeErrorReportBottomBtn')?.addEventListener('click', closeErrorReport);
+copyErrorReportBtn?.addEventListener('click', copyErrorReport);
+
 function addTelemetrySample(reading, cmd) {
     const now = clock.getElapsedTime();
     if (now - lastTelemetryAt < 2.00) return;
@@ -2466,6 +3496,7 @@ function addTelemetrySample(reading, cmd) {
             circuits: navState.roseCircuits,
             side: navState.roseSide,
             webon: cmd.webon ? 1 : 0,
+            recovery: cmd.recovery || null,
             bugMode: navState.mode,
         },
         sensors: {
@@ -2476,6 +3507,7 @@ function addTelemetrySample(reading, cmd) {
             nearest: telemetryNumber(reading.minObstacleDist),
             ultrasonic: telemetryDistances(reading.ultrasonic),
             ir: telemetryDistances(reading.ir),
+            floorIr: telemetryDistances(reading.floorIr),
         },
     };
 
@@ -2510,6 +3542,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
     };
     waypointsPassed = new Array(waypoints.length).fill(0);
     clearDraggableAuras();
+    setDrawTerrainMode(0);
     if (moveObjectsEl) {
         moveObjectsEl.checked = false;
         moveObjectsMode = 0;
@@ -2543,6 +3576,7 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     isDraggingRobot = 0;
     resetGestureState();
     setRobotSelected(0);
+    setDrawTerrainMode(0);
     animating = 0;
     navState.mode = 'IDLE';
     mode = 'waypoints';
@@ -2550,19 +3584,21 @@ document.getElementById('resetBtn').addEventListener('click', () => {
     updateModeUi();
     robot.position.set(0, 0, 0);
     robot.rotation.set(0, 0, 0);
+    robotVy = 0;
     syncRobotPhysicsBody();
 });
 
 const clock = new THREE.Clock();
 let selectedObjectType = 'sphere';
 
-['sensorLidar', 'sensorUltrasonic', 'sensorIr', 'sensorHitTest'].forEach((id) => {
+['sensorLidar', 'sensorUltrasonic', 'sensorIr', 'sensorFloorIr', 'sensorHitTest'].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
     const keyMap = {
         sensorlidar: 'lidar',
         sensorultrasonic: 'ultrasonic',
         sensorir: 'ir',
+        sensorfloorir: 'floorIr',
         sensorhittest: 'hitTest',
     };
     const key = keyMap[id.toLowerCase()];
@@ -2578,8 +3614,8 @@ if (moveObjectsEl) {
     moveObjectsEl.addEventListener('change', () => {
         moveObjectsMode = moveObjectsEl.checked ? 1 : 0;
         if (moveObjectsMode) {
+            setDrawTerrainMode(0);
             setRobotSelected(0);
-            // Keep selection only if it is a movable prop/cone; clear robot aura.
         } else {
             deselectProp();
         }
@@ -2609,9 +3645,167 @@ document.querySelectorAll('#algoGroup .toggle-btn').forEach((btn) => {
     });
 });
 
+// GUI stays English: algorithm help popup is always EN.
+const ALGO_HELP = {
+    pure_pursuit: {
+        title: 'Pure Pursuit',
+        body: [
+            'Simple path tracker. Always steers toward the current waypoint.',
+            '',
+            'Idea:',
+            '• headingErr = angle from rover nose to waypoint',
+            '• omega scales with headingErr',
+            '• slow down if forwardClear is tight',
+            '',
+            'Best for open space. Shared sensors + rose go-around still help near obstacles.',
+        ].join('\n'),
+        code: [
+            '// nav.js — pure_pursuit',
+            'const omega = clamp(headingErr * 2, -MAX_OMEGA, MAX_OMEGA);',
+            'const v = clear < 3',
+            '  ? MAX_SPEED * max(0.25, clear / 3)',
+            '  : MAX_SPEED;',
+            'return { v, omega };',
+        ].join('\n'),
+    },
+    bug2: {
+        title: 'Bug2 (M-line)',
+        body: [
+            'Classic Bug2. Follow the straight M-line to the goal until blocked,',
+            'then follow the obstacle boundary until the M-line is re-acquired closer to the goal.',
+            '',
+            'States:',
+            '• TRACK — drive toward waypoint',
+            '• BUG_FOLLOW — wall-follow on one side (steerHint)',
+            '',
+            'Leave BUG_FOLLOW when nearer to the goal on the M-line and the front is open.',
+        ].join('\n'),
+        code: [
+            '// nav.js — bug2',
+            'if (mode === "BUG_FOLLOW") {',
+            '  // follow boundary on bugSide',
+            '  if (closerOnMline && frontOpen) mode = "TRACK";',
+            '  return { v: MAX_SPEED * 0.55, omega: bugSide * MAX_OMEGA * 0.55 };',
+            '}',
+            'if (blocked && clear < 1.5) {',
+            '  mode = "BUG_FOLLOW";',
+            '  bugSide = steerHint || 1;',
+            '}',
+            '// else TRACK toward waypoint',
+        ].join('\n'),
+    },
+    dwa: {
+        title: 'DWA (Dynamic Window)',
+        body: [
+            'Samples many (v, omega) pairs inside the robot speed limits.',
+            'Simulates a short future pose for each pair and scores:',
+            '',
+            '• progress toward the waypoint',
+            '• clearance in the turn direction (from polar sensors)',
+            '',
+            'Picks the highest score. Needs LIDAR/polar data to choose open turns.',
+        ].join('\n'),
+        code: [
+            '// nav.js — dwa (simplified)',
+            'for v in [0 .. MAX_SPEED]:',
+            '  for omega in [-MAX_OMEGA .. MAX_OMEGA]:',
+            '    simulate pose for 0.6 s',
+            '    score = v*1.2 - |toGoal|*2 + clearance*0.4',
+            'return best { v, omega }',
+        ].join('\n'),
+    },
+    vfh: {
+        title: 'VFH (Vector Field Histogram)',
+        body: [
+            'Builds a polar obstacle histogram from LIDAR/IR.',
+            'Sectors with near hits get high cost; open sectors get low cost.',
+            '',
+            'Chooses the lowest-cost sector closest to the goal heading,',
+            'then turns toward that sector.',
+        ].join('\n'),
+        code: [
+            '// nav.js — vfh (simplified)',
+            'histogram[sector] += obstacleDensity',
+            'cost = histogram[s]*3 + distanceToGoalSector(s)*0.4',
+            'pick sector with min cost',
+            'omega = chosenAngle * 1.8',
+        ].join('\n'),
+    },
+    potential_field: {
+        title: 'Potential Field',
+        body: [
+            'Virtual forces: attract to the waypoint, repel from nearby obstacles.',
+            '',
+            '• attraction from headingErr',
+            '• repulsion from polar / IR hits closer than ~2.5 m',
+            '',
+            'Resultant force becomes desired heading and speed.',
+            'Can get stuck in local minima — recovery / rose go-around help.',
+        ].join('\n'),
+        code: [
+            '// nav.js — potential_field (simplified)',
+            'attract = toward waypoint',
+            'repel = sum( -direction / distance ) for close hits',
+            'desired = attract + repel',
+            'omega = atan2(desired) * 2',
+            'v = MAX_SPEED * |desired|',
+        ].join('\n'),
+    },
+    custom: {
+        title: 'Custom (JS pad)',
+        body: [
+            'Student-written loop() assigns v and omega each frame.',
+            'Read-only robot API: pose, waypoint, sensors, MAX_SPEED, MAX_OMEGA.',
+            '',
+            'Open the Custom pad, Check, then Save. Shared safety / recovery still run first.',
+        ].join('\n'),
+        code: [
+            '// Custom pad example',
+            'v = MAX_SPEED * 0.60',
+            'omega = headingErr * 2.00',
+            'draw(robotX, robotZ)',
+        ].join('\n'),
+    },
+};
+
+const algoHelpDialog = document.getElementById('algoHelpDialog');
+const algoHelpTitle = document.getElementById('algoHelpTitle');
+const algoHelpBody = document.getElementById('algoHelpBody');
+const algoHelpCode = document.getElementById('algoHelpCode');
+
+function openAlgoHelp(algoId) {
+    const info = ALGO_HELP[algoId];
+    if (!info || !algoHelpDialog) return;
+    if (algoHelpTitle) algoHelpTitle.textContent = info.title;
+    if (algoHelpBody) algoHelpBody.textContent = info.body;
+    if (algoHelpCode) algoHelpCode.textContent = info.code;
+    if (typeof algoHelpDialog.showModal === 'function') {
+        if (!algoHelpDialog.open) algoHelpDialog.showModal();
+    } else {
+        algoHelpDialog.setAttribute('open', '');
+    }
+}
+
+function closeAlgoHelp() {
+    if (!algoHelpDialog) return;
+    if (typeof algoHelpDialog.close === 'function') algoHelpDialog.close();
+    else algoHelpDialog.removeAttribute('open');
+}
+
+document.querySelectorAll('[data-algo-help]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openAlgoHelp(btn.dataset.algoHelp);
+    });
+});
+document.getElementById('closeAlgoHelpBtn')?.addEventListener('click', closeAlgoHelp);
+document.getElementById('closeAlgoHelpBottomBtn')?.addEventListener('click', closeAlgoHelp);
+
 document.querySelectorAll('#modeGroup .toggle-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
         mode = btn.dataset.mode;
+        setDrawTerrainMode(0);
         updateModeUi();
     });
 });
@@ -2689,6 +3883,46 @@ document.getElementById('clearObjectsBtn').addEventListener('click', () => {
     clearPhysicsProps();
 });
 
+const drawTerrainBtn = document.getElementById('drawTerrainBtn');
+if (drawTerrainBtn) {
+    drawTerrainBtn.addEventListener('click', () => {
+        if (animating) return;
+        setDrawTerrainMode(drawTerrainMode ? 0 : 1);
+    });
+}
+
+const stampHeightSlider = document.getElementById('stampHeight');
+if (stampHeightSlider) {
+    stampHeightSlider.addEventListener('input', (e) => {
+        if (selectedStamp) setStampHeight(selectedStamp, parseFloat(e.target.value));
+    });
+    stampHeightSlider.addEventListener('change', () => {
+        if (selectedStamp) addLog(t('logStampHeight', { label: stampHeightCaption(selectedStamp.height) }));
+    });
+}
+
+const clearStampBtn = document.getElementById('clearStampBtn');
+if (clearStampBtn) {
+    clearStampBtn.addEventListener('click', () => {
+        if (!selectedStamp) return;
+        removeTerrainStamp(selectedStamp);
+        addLog(t('logStampRemoved'));
+    });
+}
+
+window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (isDrawingStroke) {
+        cancelTerrainStroke();
+        e.preventDefault();
+    } else if (drawTerrainMode) {
+        setDrawTerrainMode(0);
+        e.preventDefault();
+    }
+});
+
+updateStampHeightUi();
+
 applyLanguage(currentLang);
 updateModeUi();
 updateSensorStatus();
@@ -2703,6 +3937,8 @@ function animate() {
 
     stepPhysics(dt);
     applyRobotPushImpulse(dt);
+    applyRoverTerrain(dt);
+    updateSpringBumper(dt);
 
     irBand.visible = sensorConfig.ir ? true : false;
     usCone.visible = sensorConfig.ultrasonic ? true : false;
@@ -2727,17 +3963,11 @@ function animate() {
         const target = waypoints[pathIndex];
         if (sensorConfig.hitTest) depenetrateRobot();
         const reading = sensorSuite.read();
-        // Only feed footprint collision into nav when hit-test is on.
-        // Otherwise algorithms would still "avoid" while the user asked for bumps.
-        if (sensorConfig.hitTest && sensorSuite.isPhysicalCollision()) {
-            reading.blocked = 1;
-            reading.forwardClear = Math.min(reading.forwardClear, 0.4);
-            reading.minObstacleDist = Math.min(reading.minObstacleDist, 0.4);
-        }
-
-        sensorSuite.updateLidarVisuals(reading);
-
-        if (sensorSuite.isPhysicalCollision()) {
+        // AABB overlap is noisy (axis-aligned inflate). Bumper visual only —
+        // navigation trusts sensors + queryPose, not this false "blocked" inject.
+        const poseHit = queryPose(robot.position.x, robot.position.z, robot.rotation.y);
+        if (sensorConfig.hitTest && poseHit.clear === 0) {
+            triggerSpringBumper();
             markCollision(robot.position.clone());
         }
 
@@ -2749,14 +3979,34 @@ function animate() {
             missionStart,
         );
 
+        if (cmd.recovery && navState.lastRecoveryLog !== cmd.recovery) {
+            navState.lastRecoveryLog = cmd.recovery;
+            addLog(t('logRecovery', { phase: cmd.recovery }));
+        } else if (!cmd.recovery) {
+            navState.lastRecoveryLog = '';
+        }
+
         if (cmd.skip) {
             skipUnreachableWaypoint();
         }
         if (!cmd.skip) {
             addTelemetrySample(reading, cmd);
+            const beforeX = robot.position.x;
+            const beforeZ = robot.position.z;
             const motionBlocked = applyMotion(cmd.v, cmd.omega, dt);
-            navState.forceRose = sensorConfig.hitTest ? motionBlocked : 0;
+            const progressed = Math.hypot(
+                robot.position.x - beforeX,
+                robot.position.z - beforeZ,
+            ) > 0.06;
+            if (progressed) navState.forceRose = 0;
+            else if (sensorConfig.hitTest && motionBlocked && cmd.v > 0) {
+                navState.forceRose = 1;
+            } else {
+                navState.forceRose = 0;
+            }
         }
+
+        sensorSuite.updateLidarVisuals(reading);
 
         if (!cmd.skip && activeAlgo === 'bug2' && navState.mode === 'BUG_FOLLOW') {
             const now = clock.getElapsedTime();

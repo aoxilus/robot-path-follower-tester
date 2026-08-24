@@ -15,7 +15,8 @@ index.html (UI buttons / sensors / Custom pad)
 main.js
   · Three.js scene + OrbitControls
   · Rover mesh + collision footprint
-  · Waypoints, props, pointer input
+  · Waypoints, props, terrain-relief drawing, pointer input
+  · Relief mesh + CANNON trimesh + invisible sensor walls
   · Mission loop (animate → sensors → nav → applyMotion)
   · Telemetry + Custom JS checker
     │
@@ -38,14 +39,29 @@ nav.js defaultCustomCommand  OR  compiled loop from localStorage
 | `PLANE_SIZE` | 30 | Arena side length (m) |
 | `BUILD_LIMIT` | 13.5 | Playable half-extent (±) |
 | `WP_ACCEPT_RADIUS` | 1.5 | Waypoint pass distance (m) |
-| `ROBOT_COLLISION` | 2×3 m footprint | Body hull (excludes radar visuals) |
-| `ROBOT_WIDTH` | 2 | Full body width (m) |
-| `LIDAR_RANGE` | 5 | LIDAR max (m) |
+| `ROBOT_COLLISION` | 2.8×3 m footprint | Full body + wheels (excludes radar visuals) |
+| `ROBOT_WIDTH` | 2.8 | Full physical width (m) |
+| `LIDAR_RANGE` | 6 | Twice the largest rover footprint dimension (m) |
 | `ULTRASONIC_RANGE` | 4 | Ultrasonic max (m) |
-| `IR_RANGE` | 2 | IR max (m) |
+| `IR_RANGE` | 0.6 | Contact-zone IR max (m) |
+| `FLOOR_IR_RANGE` | 3 | Depression-edge IR range (m) |
 | `MAX_SPEED` | 4 | Cap linear speed (m/s) |
 | `MAX_OMEGA` | 2.5 | Cap yaw rate (rad/s) |
 | `PASS_CLEAR_MARGIN` | 0.3 | Extra clearance for “passable” poses |
+| `STAMP_HEIGHT_MIN/MAX` | −5 / +5 | Depression / mountain limits |
+| `STAMP_FLAT_EPS` | 0.08 | Near-zero stamp remains non-blocking |
+| `MOTION_SWEEP_STEP` | 0.08 | Maximum translation between hit-tests |
+| `ROTATION_SWEEP_STEP` | 0.05 | Maximum rotation between hit-tests |
+
+Collision is fixed in world-space meters (`hitInsetMeters() = 0`), never derived from camera pixels. `applyMotion` checks every swept substep before accepting it, which prevents tunneling and visible object overlap.
+
+## Terrain relief as choke
+
+An extruded terrain stamp has three synchronized forms: visible Three.js relief, static CANNON triangle mesh, and invisible perimeter walls registered with `SensorSuite`. Raised walls are normal obstacle targets. Sunken walls belong to `floorTargets()` and become choke only while Floor IR is enabled; when disabled, `queryPose` also ignores negative stamps so the rover can descend. At `0 m`, the flat preview is not registered and does not block.
+
+`stuckRecoveryCommand` is shared by every algorithm. Staying within `0.08 m` for `1.5 s` triggers reverse, a turn toward `chooseFreestHeading`, then a forward escape before normal navigation resumes.
+
+Sensor modules are independently authoritative. LIDAR caches a 36-bin 360° scan for `0.18 s`; five parallel rays per heading form a `3 m` clearance corridor around the rover. Ultrasonic remains a forward cone, IR is limited to `0.6 m`, and the visible hit-test bumper compresses without overriding planner commands.
 
 ## Context passed into `createNavSystem`
 

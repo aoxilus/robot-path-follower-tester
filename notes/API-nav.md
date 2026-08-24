@@ -12,7 +12,7 @@ Builds sensors + navigation. Returns:
 
 ```js
 {
-  sensorConfig,      // { lidar, ultrasonic, ir } mutable 0/1
+  sensorConfig,      // { lidar, ultrasonic, ir, floorIr, hitTest } mutable 0/1
   sensorSuite,       // SensorSuite instance
   computeNavCommand, // main planner entry
   setCustomRunner,   // plug Custom loop
@@ -29,25 +29,31 @@ Builds sensors + navigation. Returns:
 | `constructor(robotObj, staticObstacles)` | Raycaster + cached obstacle boxes; `lidarBins = 36` |
 | `addDynamicObstacle(mesh)` | Track physics prop for ray hits |
 | `removeDynamicObstacle(mesh)` | Untrack prop |
-| `allTargets()` | Static + dynamic meshes |
+| `addTerrainMesh(mesh)` | Track an extruded stamp perimeter for sensor choke |
+| `removeTerrainMesh(mesh)` | Untrack terrain perimeter |
+| `allTargets()` | Static + dynamic + raised-terrain meshes |
+| `floorTargets()` | Sunken-terrain perimeter meshes for Floor IR |
+| `castTargets(origin, dir, range, targets)` | Raycast a specific sensor target set |
 | `cast(origin, dir, maxDist)` | Raycast; returns hit distance or **`Infinity`** if clear |
+| `castCorridor(origin, dir, range, halfSpan)` | Five parallel LIDAR rays inflated to rover clearance |
 | `read()` | Fuse enabled sensors into one reading object |
-| `isPhysicalCollision()` | AABB overlap robot vs obstacles |
+| `isPhysicalCollision()` | AABB overlap robot vs obstacles and terrain sensor walls |
 | `updateLidarVisuals(reading)` | Update scan-ray lengths/colors |
 
 ### `read()` output shape
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `lidar` | `Float32Array(36)` or null | Full 360° distances |
+| `lidar` | `Float32Array(36)` or null | Cached 360° hull-clearance distances |
 | `ultrasonic` | `[L,C,R]` or null | Front cone |
 | `ir` | `[L,C,R]` or null | Short bumper |
+| `floorIr` | `[L,C,R]` or null | Depression-edge distances |
 | `polar` | `Float32Array(36)` or null | Fused polar map for planners |
 | `forwardClear` | number | Min clear distance ahead |
 | `minObstacleDist` | number | Nearest hit |
 | `blocked` | 0/1 | Front sector considered blocked |
 | `steerHint` | −1 / 0 / 1 | Prefer turn side |
-| `sensorVotes` / `sensorWeight` | number | Multi-sensor agreement |
+| `sensorVotes` / `sensorWeight` | number | Active detections / telemetry weight; one vote is authoritative |
 
 **Important:** clear cast = `Infinity`, not `maxDist` (avoids false “always blocked” when short-range sensors see nothing).
 
@@ -58,6 +64,7 @@ Builds sensors + navigation. Returns:
 | Function | Role |
 |----------|------|
 | `setCustomRunner(fn)` | Custom algo runner; non-function → file fallback |
+| `stuckRecoveryCommand(...)` | `reverse → look → escape` after 1.5 s within 0.08 m |
 | `normalizeAngle(a)` | Wrap to (−π, π] |
 | `goalHeading(target)` | Bearing to waypoint |
 | `distToGoal(target)` | Distance to waypoint |
@@ -72,8 +79,9 @@ Builds sensors + navigation. Returns:
 
 ## `computeNavCommand(activeAlgo, target, reading, navState, missionStart)`
 
-1. Run `safetyCommand` — if it returns a command, use it (go-around / skip).
-2. Else dispatch by `activeAlgo`:
+1. Run algorithm-independent stuck recovery.
+2. Run `safetyCommand` — if it returns a command, use it (go-around / skip).
+3. Else dispatch by `activeAlgo`:
 
 | `activeAlgo` | Behavior |
 |--------------|----------|

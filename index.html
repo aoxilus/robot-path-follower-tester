@@ -25,7 +25,7 @@
           <div class="sensor-grid" id="sensorGroup">
             <label class="sensor-check">
               <input type="checkbox" id="sensorLidar" checked>
-              <span data-i18n="sensorLidar">LIDAR (360° scan)</span>
+              <span data-i18n="sensorLidar">LIDAR (360° scan, 6 m)</span>
             </label>
             <label class="sensor-check">
               <input type="checkbox" id="sensorUltrasonic" checked>
@@ -33,11 +33,15 @@
             </label>
             <label class="sensor-check">
               <input type="checkbox" id="sensorIr" checked>
-              <span data-i18n="sensorIr">3× IR front (short range)</span>
+              <span data-i18n="sensorIr">3× IR front (contact range)</span>
+            </label>
+            <label class="sensor-check">
+              <input type="checkbox" id="sensorFloorIr">
+              <span data-i18n="sensorFloorIr">Floor IR (holes; off = 4×4)</span>
             </label>
             <label class="sensor-check">
               <input type="checkbox" id="sensorHitTest" checked>
-              <span data-i18n="sensorHitTest">Hit test (footprint avoid)</span>
+              <span data-i18n="sensorHitTest">Spring bumper (contact hit test)</span>
             </label>
           </div>
           <p id="sensorStatus" class="sensor-status" aria-live="polite"></p>
@@ -47,18 +51,37 @@
           <h2 data-i18n="sectionNav">Navigation</h2>
           <p class="field-label" data-i18n="algorithmLabel">Path Algorithm:</p>
           <div class="btn-group btn-group-stack" id="algoGroup" role="group">
-            <button type="button" class="toggle-btn active" data-algo="pure_pursuit" data-i18n="algoPurePursuit">Pure Pursuit</button>
-            <button type="button" class="toggle-btn" data-algo="bug2" data-i18n="algoBug2">Bug2 (M-line)</button>
-            <button type="button" class="toggle-btn" data-algo="dwa" data-i18n="algoDwa">DWA</button>
-            <button type="button" class="toggle-btn" data-algo="vfh" data-i18n="algoVfh">VFH</button>
-            <button type="button" class="toggle-btn" data-algo="potential_field" data-i18n="algoPotential">Potential Field</button>
-            <button type="button" class="toggle-btn" data-algo="custom" data-i18n="algoCustom">Custom (JS hook)</button>
+            <div class="algo-row">
+              <button type="button" class="toggle-btn active" data-algo="pure_pursuit" data-i18n="algoPurePursuit">Pure Pursuit</button>
+              <button type="button" class="algo-help-btn" data-algo-help="pure_pursuit" title="?" aria-label="Help">?</button>
+            </div>
+            <div class="algo-row">
+              <button type="button" class="toggle-btn" data-algo="bug2" data-i18n="algoBug2">Bug2 (M-line)</button>
+              <button type="button" class="algo-help-btn" data-algo-help="bug2" title="?" aria-label="Help">?</button>
+            </div>
+            <div class="algo-row">
+              <button type="button" class="toggle-btn" data-algo="dwa" data-i18n="algoDwa">DWA</button>
+              <button type="button" class="algo-help-btn" data-algo-help="dwa" title="?" aria-label="Help">?</button>
+            </div>
+            <div class="algo-row">
+              <button type="button" class="toggle-btn" data-algo="vfh" data-i18n="algoVfh">VFH</button>
+              <button type="button" class="algo-help-btn" data-algo-help="vfh" title="?" aria-label="Help">?</button>
+            </div>
+            <div class="algo-row">
+              <button type="button" class="toggle-btn" data-algo="potential_field" data-i18n="algoPotential">Potential Field</button>
+              <button type="button" class="algo-help-btn" data-algo-help="potential_field" title="?" aria-label="Help">?</button>
+            </div>
+            <div class="algo-row">
+              <button type="button" class="toggle-btn" data-algo="custom" data-i18n="algoCustom">Custom (JS hook)</button>
+              <button type="button" class="algo-help-btn" data-algo-help="custom" title="?" aria-label="Help">?</button>
+            </div>
           </div>
           <p class="hint arena-hint" data-i18n="arenaHint">Arena 30×30 m (900 m²) · robot 2×3 m · waypoints snap to grid</p>
           <div class="btn-row">
             <button type="button" id="startBtn" data-i18n="startBtn">Start Exploration</button>
             <button type="button" id="resetBtn" data-i18n="resetBtn">Reset</button>
           </div>
+          <button type="button" id="showErrorReportBtn" data-i18n="showErrorReportBtn">Show Error Report</button>
         </section>
 
         <section class="panel-section">
@@ -134,6 +157,22 @@
           </label>
           <input type="range" id="terrainSize" min="10" max="60" step="5" value="30">
           <p class="hint" data-i18n="terrainSizeHint">Side length 10–60 m · area in m²</p>
+          <button type="button" id="drawTerrainBtn" class="pencil-btn" aria-pressed="false">
+            <span class="pencil-emoji" aria-hidden="true">✏️</span>
+            <span data-i18n="drawTerrainLabel">Draw shape</span>
+          </button>
+          <p class="hint" data-i18n="drawTerrainHint">Pencil on: drag on the floor. Then extrude ↑ mountain or ↓ depression.</p>
+          <label for="stampHeight" class="field-label">
+            <span data-i18n="stampHeightLabel">Extrude:</span>
+            <span id="stampHeightValue" class="mass-value">0 m · flat</span>
+          </label>
+          <input type="range" id="stampHeight" min="-5" max="5" step="0.1" value="0" disabled>
+          <div class="stamp-height-ends">
+            <span data-i18n="stampHeightDown">↓ intrude</span>
+            <span data-i18n="stampHeightUp">extrude ↑</span>
+          </div>
+          <p class="hint" data-i18n="stampHeightHint">↑ raises a mountain · ↓ sinks a visible depression</p>
+          <button type="button" id="clearStampBtn" data-i18n="clearStampBtn">Remove shape</button>
           <label for="objectMass" class="field-label">
             <span data-i18n="objectMassLabel">Weight (kg):</span>
             <span id="massValue" class="mass-value">5.0</span>
@@ -167,6 +206,29 @@
         </section>
       </aside>
     </div>
+    <dialog id="errorReportDialog" aria-labelledby="errorReportTitle">
+      <div class="error-report-header">
+        <h2 id="errorReportTitle" data-i18n="errorReportTitle">Robot Error Report</h2>
+        <button type="button" id="closeErrorReportBtn" aria-label="Close">×</button>
+      </div>
+      <p data-i18n="errorReportHint">Copy report and paste it here.</p>
+      <textarea id="errorReportText" readonly spellcheck="false"></textarea>
+      <div class="error-report-actions">
+        <button type="button" id="copyErrorReportBtn" data-i18n="copyErrorReportBtn">Copy Report</button>
+        <button type="button" id="closeErrorReportBottomBtn" data-i18n="customPadClose">Close</button>
+      </div>
+    </dialog>
+    <dialog id="algoHelpDialog" aria-labelledby="algoHelpTitle">
+      <div class="error-report-header">
+        <h2 id="algoHelpTitle">Algorithm</h2>
+        <button type="button" id="closeAlgoHelpBtn" aria-label="Close">×</button>
+      </div>
+      <div id="algoHelpBody" class="algo-help-body"></div>
+      <pre id="algoHelpCode" class="algo-help-code"></pre>
+      <div class="error-report-actions">
+        <button type="button" id="closeAlgoHelpBottomBtn" data-i18n="customPadClose">Close</button>
+      </div>
+    </dialog>
     <script type="module" src="./main.js"></script>
   </body>
 </html>

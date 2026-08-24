@@ -123,6 +123,88 @@ body {
   background: rgba(0, 255, 204, 0.12);
 }
 
+#showErrorReportBtn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #ff6b57;
+  border-radius: 4px;
+  background: rgba(255, 70, 50, 0.12);
+  color: #ff8a78;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+#showErrorReportBtn:hover {
+  background: rgba(255, 70, 50, 0.24);
+}
+
+#errorReportDialog {
+  width: min(720px, calc(100vw - 32px));
+  height: min(620px, calc(100vh - 32px));
+  padding: 14px;
+  border: 1px solid #ff6b57;
+  border-radius: 8px;
+  background: #11151a;
+  color: #eee;
+}
+
+#errorReportDialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.error-report-header,
+.error-report-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.error-report-header h2 {
+  margin: 0;
+  color: #ff8a78;
+  font-size: 1rem;
+}
+
+#errorReportDialog p {
+  margin: 8px 0;
+  color: #aaa;
+  font-size: 0.78rem;
+}
+
+#errorReportText {
+  box-sizing: border-box;
+  width: 100%;
+  height: calc(100% - 94px);
+  resize: none;
+  padding: 10px;
+  border: 1px solid #39434c;
+  border-radius: 4px;
+  background: #090c0f;
+  color: #d8fff6;
+  font: 0.74rem/1.4 ui-monospace, Consolas, monospace;
+}
+
+#closeErrorReportBtn,
+#copyErrorReportBtn,
+#closeErrorReportBottomBtn {
+  padding: 6px 12px;
+  border: 1px solid #ff6b57;
+  border-radius: 4px;
+  background: transparent;
+  color: #ff8a78;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.error-report-actions {
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
 .panel-header h1 {
   margin: 10px 0 4px;
   font-size: 1.05rem;
@@ -200,6 +282,69 @@ body {
 
 .btn-group-stack {
   flex-direction: column;
+}
+
+.algo-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.algo-row .toggle-btn {
+  flex: 1;
+}
+
+.algo-help-btn {
+  flex-shrink: 0;
+  width: 34px;
+  border: 1px solid #3a4a55;
+  border-radius: 4px;
+  background: #151a1f;
+  color: #7fd4ff;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.algo-help-btn:hover {
+  border-color: #7fd4ff;
+  background: rgba(127, 212, 255, 0.12);
+}
+
+#algoHelpDialog {
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 32px));
+  padding: 14px;
+  border: 1px solid #3a8cff;
+  border-radius: 8px;
+  background: #11151a;
+  color: #eee;
+  overflow: auto;
+}
+
+#algoHelpDialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.algo-help-body {
+  margin: 8px 0 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #cfd8e0;
+  white-space: pre-wrap;
+}
+
+.algo-help-code {
+  margin: 0;
+  padding: 10px;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid #243040;
+  border-radius: 4px;
+  background: #090c0f;
+  color: #9fe7c8;
+  font: 0.72rem/1.4 ui-monospace, Consolas, monospace;
+  white-space: pre;
 }
 
 .sensor-grid {
@@ -310,6 +455,20 @@ button {
   color: #fff;
 }
 
+#clearStampBtn {
+  display: block;
+  width: 100%;
+  margin: 8px 0 10px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: #333;
+  color: #ddd;
+}
+
 input[type="range"] {
   width: 100%;
   margin: 6px 0 4px;
@@ -414,6 +573,52 @@ input[type="range"] {
 .drag-item[data-type="sphere"] { border-color: #3388cc; }
 .drag-item[data-type="box"] { border-color: #cc8833; }
 .drag-item[data-type="cylinder"] { border-color: #8833cc; }
+
+.pencil-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: #1c1c1c;
+  border: 2px solid #444;
+  border-radius: 6px;
+  color: #f0f0f0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pencil-btn:hover {
+  background: #242424;
+  border-color: #666;
+}
+
+.pencil-btn.active,
+.pencil-btn[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: rgba(0, 255, 204, 0.10);
+  color: var(--accent);
+}
+
+.pencil-emoji {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.stamp-height-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 0.62rem;
+  color: #888;
+}
+
+#viewport.drawing-terrain canvas {
+  cursor: crosshair;
+}
 
 .drag-icon {
   width: 20px;

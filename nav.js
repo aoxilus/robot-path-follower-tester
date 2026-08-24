@@ -15,28 +15,44 @@ export function createNavSystem(ctx) {
         LIDAR_RANGE,
         ULTRASONIC_RANGE,
         IR_RANGE,
+        FLOOR_IR_RANGE,
         MAX_SPEED,
         MAX_OMEGA,
         PASS_CLEAR_MARGIN,
         WP_ACCEPT_RADIUS,
     } = ctx;
 
-    const sensorConfig = { lidar: 1, ultrasonic: 1, ir: 1, hitTest: 1 };
+    const sensorConfig = {
+        lidar: 1,
+        ultrasonic: 1,
+        ir: 1,
+        floorIr: 0, // off = 4x4 into depressions; on = avoid holes
+        hitTest: 1,
+    };
     const OA_BR_LOOKAHEAD = 5.00;
     const OA_MARGIN_MAX = 1.50;
     const ROSE_AREA_RADIUS = 1.50;
     const ROSE_MIN_CIRCUIT = 4.00;
+    const LIDAR_UPDATE_INTERVAL = 0.18;
+    const LIDAR_CLEARANCE_RADIUS = Math.max(
+        ROBOT_COLLISION.halfWidth,
+        ROBOT_COLLISION.halfLength,
+    );
+    const BUMPER_PROBE = 0.24;
 
     class SensorSuite {
         constructor(robotObj, staticObstacles) {
             this.robot = robotObj;
             this.staticObstacles = staticObstacles;
             this.dynamicObstacles = [];
+            this.terrainMeshes = [];
             this.ray = new THREE.Raycaster();
             this.origin = new THREE.Vector3();
             this.robotBoxCache = new THREE.Box3();
             this.obsBoxes = staticObstacles.map((obs) => new THREE.Box3().setFromObject(obs));
             this.lidarBins = 36;
+            this.lidarCache = null;
+            this.lidarNextAt = 0;
         }
 
         addDynamicObstacle(mesh) { this.dynamicObstacles.push(mesh); }
@@ -45,8 +61,32 @@ export function createNavSystem(ctx) {
             if (idx >= 0) this.dynamicObstacles.splice(idx, 1);
         }
 
+        addTerrainMesh(mesh) {
+            if (this.terrainMeshes.indexOf(mesh) < 0) this.terrainMeshes.push(mesh);
+        }
+        removeTerrainMesh(mesh) {
+            const idx = this.terrainMeshes.indexOf(mesh);
+            if (idx >= 0) this.terrainMeshes.splice(idx, 1);
+        }
+
         allTargets() {
-            return [...this.staticObstacles, ...this.dynamicObstacles];
+            const raisedTerrain = this.terrainMeshes.filter(
+                (mesh) => (mesh.userData?.terrainHeight ?? 0) > 0,
+            );
+            return [...this.staticObstacles, ...this.dynamicObstacles, ...raisedTerrain];
+        }
+
+        floorTargets() {
+            return this.terrainMeshes.filter(
+                (mesh) => (mesh.userData?.terrainHeight ?? 0) < 0,
+            );
+        }
+
+        castTargets(origin, dir, maxDist, targets) {
+            this.ray.far = maxDist;
+            this.ray.set(origin, dir.clone().normalize());
+            const hits = this.ray.intersectObjects(targets, true);
+            return hits.length > 0 ? hits[0].distance : Infinity;
         }
 
         // Returns Infinity — not maxDist — when nothing is hit. Returning
@@ -59,10 +99,23 @@ export function createNavSystem(ctx) {
         // even with LIDAR reporting 5m clear on the same heading. That made
         // every algorithm think it was almost always blocked.
         cast(origin, dir, maxDist) {
-            this.ray.far = maxDist;
-            this.ray.set(origin, dir.clone().normalize());
-            const hits = this.ray.intersectObjects(this.allTargets(), true);
-            return hits.length > 0 ? hits[0].distance : Infinity;
+            return this.castTargets(origin, dir, maxDist, this.allTargets());
+        }
+
+        castCorridor(origin, dir, maxDist, halfSpan) {
+            // Parallel rays across the rover footprint. Report true obstacle
+            // distance (not hull-subtracted) so LIDAR alone can steer early.
+            const perpendicular = new THREE.Vector3(dir.z, 0, -dir.x).normalize();
+            const offsets = [-1, -0.5, 0, 0.5, 1];
+            let nearest = Infinity;
+            for (const offset of offsets) {
+                const rayOrigin = origin.clone().addScaledVector(
+                    perpendicular,
+                    halfSpan * offset,
+                );
+                nearest = Math.min(nearest, this.cast(rayOrigin, dir, maxDist));
+            }
+            return nearest;
         }
 
         read() {
@@ -75,6 +128,7 @@ export function createNavSystem(ctx) {
                 lidar: null,
                 ultrasonic: null,
                 ir: null,
+                floorIr: null,
                 polar: null,
                 forwardClear: Infinity,
                 minObstacleDist: Infinity,
@@ -85,14 +139,26 @@ export function createNavSystem(ctx) {
             };
 
             if (sensorConfig.lidar) {
-                const dists = new Float32Array(this.lidarBins);
-                for (let i = 0; i < this.lidarBins; i++) {
-                    const angle = (i / this.lidarBins) * Math.PI * 2;
-                    const worldDir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle)).applyMatrix4(rot).normalize();
-                    dists[i] = this.cast(this.origin, worldDir, LIDAR_RANGE);
+                const now = Date.now() / 1000;
+                if (!this.lidarCache || now >= this.lidarNextAt) {
+                    const dists = new Float32Array(this.lidarBins);
+                    for (let i = 0; i < this.lidarBins; i++) {
+                        const angle = (i / this.lidarBins) * Math.PI * 2;
+                        const worldDir = new THREE.Vector3(Math.sin(angle), 0, Math.cos(angle))
+                            .applyMatrix4(rot)
+                            .normalize();
+                        dists[i] = this.castCorridor(
+                            this.origin,
+                            worldDir,
+                            LIDAR_RANGE,
+                            LIDAR_CLEARANCE_RADIUS,
+                        );
+                    }
+                    this.lidarCache = dists;
+                    this.lidarNextAt = now + LIDAR_UPDATE_INTERVAL;
                 }
-                out.lidar = dists;
-                out.polar = dists;
+                out.lidar = this.lidarCache;
+                out.polar = new Float32Array(this.lidarCache);
             }
 
             if (sensorConfig.ultrasonic) {
@@ -150,6 +216,33 @@ export function createNavSystem(ctx) {
                 }
             }
 
+            if (sensorConfig.floorIr) {
+                const floorAngles = [-0.32, 0, 0.32];
+                const floorTargets = this.floorTargets();
+                const floorIr = floorAngles.map((a) => {
+                    const world = new THREE.Vector3(Math.sin(a), 0, Math.cos(a))
+                        .applyMatrix4(rot)
+                        .normalize();
+                    return this.castTargets(this.origin, world, FLOOR_IR_RANGE, floorTargets);
+                });
+                out.floorIr = floorIr;
+                out.forwardClear = Math.min(out.forwardClear, floorIr[1]);
+                out.minObstacleDist = Math.min(out.minObstacleDist, ...floorIr);
+                if (!out.polar) {
+                    out.polar = new Float32Array(this.lidarBins).fill(Infinity);
+                }
+                const floorBins = [-2, 0, 2];
+                for (let i = 0; i < floorIr.length; i++) {
+                    let bin = floorBins[i] % this.lidarBins;
+                    if (bin < 0) bin += this.lidarBins;
+                    out.polar[bin] = Math.min(out.polar[bin], floorIr[i]);
+                }
+                if (Math.min(...floorIr) < FLOOR_IR_RANGE * 0.95) {
+                    out.blocked = 1;
+                    out.steerHint = floorIr[0] > floorIr[2] ? -1 : 1;
+                }
+            }
+
             if (out.polar) {
                 const centerIdx = 0; // bin 0 = robot forward (+Z)
                 const front = [];
@@ -172,13 +265,13 @@ export function createNavSystem(ctx) {
                 out.steerHint = out.ultrasonic[0] > out.ultrasonic[2] ? -1 : 1;
             }
 
-            // Sensor consensus: an individual reading is noise or a grazing
-            // hit; 2 of the 3 independent sensor systems must agree before
-            // navigation enters obstacle avoidance. The weight is retained
-            // for telemetry so every decision can be audited.
+            // Each sensor is a complete optional module. Any enabled sensor
+            // can independently request avoidance; combining sensors improves
+            // coverage but is never required for a single module to work.
             let lidarVote = 0;
             let ultrasonicVote = 0;
             let irVote = 0;
+            let floorIrVote = 0;
 
             if (out.lidar) {
                 let lidarFront = Infinity;
@@ -186,7 +279,7 @@ export function createNavSystem(ctx) {
                     const index = (i + this.lidarBins) % this.lidarBins;
                     lidarFront = Math.min(lidarFront, out.lidar[index]);
                 }
-                if (lidarFront < 2.50) lidarVote = 1;
+                if (lidarFront < 1.80) lidarVote = 1;
             }
 
             if (out.ultrasonic) {
@@ -194,7 +287,7 @@ export function createNavSystem(ctx) {
                 for (let i = 0; i < out.ultrasonic.length; i++) {
                     ultrasonicFront = Math.min(ultrasonicFront, out.ultrasonic[i]);
                 }
-                if (ultrasonicFront < 2.50) ultrasonicVote = 1;
+                if (ultrasonicFront < 2.00) ultrasonicVote = 1;
             }
 
             if (out.ir) {
@@ -202,14 +295,19 @@ export function createNavSystem(ctx) {
                 for (let i = 0; i < out.ir.length; i++) {
                     irFront = Math.min(irFront, out.ir[i]);
                 }
-                if (irFront < 1.50) irVote = 1;
+                if (irFront < IR_RANGE * 0.95) irVote = 1;
             }
 
-            out.sensorVotes = lidarVote + ultrasonicVote + irVote;
+            if (out.floorIr && Math.min(...out.floorIr) < FLOOR_IR_RANGE * 0.95) {
+                floorIrVote = 1;
+            }
+
+            out.sensorVotes = lidarVote + ultrasonicVote + irVote + floorIrVote;
             out.sensorWeight = lidarVote * 0.50
                 + ultrasonicVote * 0.30
-                + irVote * 0.20;
-            out.blocked = out.sensorVotes >= 2 ? 1 : 0;
+                + irVote * 0.20
+                + floorIrVote * 0.50;
+            out.blocked = out.sensorVotes >= 1 ? 1 : 0;
 
             return out;
         }
@@ -226,6 +324,11 @@ export function createNavSystem(ctx) {
                 const box = new THREE.Box3().setFromObject(mesh);
                 if (this.robotBoxCache.intersectsBox(box)) return true;
             }
+            for (const mesh of this.terrainMeshes) {
+                if ((mesh.userData?.terrainHeight ?? 0) < 0 && !sensorConfig.floorIr) continue;
+                const box = new THREE.Box3().setFromObject(mesh);
+                if (this.robotBoxCache.intersectsBox(box)) return true;
+            }
             return false;
         }
 
@@ -237,13 +340,15 @@ export function createNavSystem(ctx) {
             const step = Math.max(1, Math.floor(reading.lidar.length / scanRaysCount));
             for (let i = 0; i < scanRaysCount; i++) {
                 const line = scanRays[i];
-                const dist = reading.lidar[Math.min(i * step, reading.lidar.length - 1)];
-                const angle = -Math.PI / 2 + (Math.PI / (scanRaysCount - 1)) * i;
+                const sourceIndex = Math.min(i * step, reading.lidar.length - 1);
+                const dist = reading.lidar[sourceIndex];
+                const visualDist = Number.isFinite(dist) ? Math.min(dist, LIDAR_RANGE) : LIDAR_RANGE;
+                const angle = (sourceIndex / reading.lidar.length) * Math.PI * 2;
                 line.material.opacity = 0.55;
                 line.material.color.setHex(dist < 1.5 ? 0xff4444 : 0x00ff88);
                 line.geometry.setFromPoints([
                     new THREE.Vector3(0, 0, 0),
-                    new THREE.Vector3(Math.sin(angle) * dist, 0, Math.cos(angle) * dist),
+                    new THREE.Vector3(Math.sin(angle) * visualDist, 0, Math.cos(angle) * visualDist),
                 ]);
             }
         }
@@ -325,6 +430,97 @@ export function createNavSystem(ctx) {
         return { angle: bestAngle, clearance: bestClearance, found: bestScore > -Infinity ? 1 : 0 };
     }
 
+    function stuckRecoveryCommand(headingErr, reading, navState) {
+        const now = Date.now() / 1000;
+        const threshold = 0.12;
+        const stuckWindow = 1.80;
+
+        if (navState.recoveryPhase) {
+            if (now >= navState.recoveryUntil) {
+                if (navState.recoveryPhase === 'reverse') {
+                    navState.recoveryPhase = 'look';
+                    navState.recoveryUntil = now + 0.70;
+                } else if (navState.recoveryPhase === 'look') {
+                    navState.recoveryPhase = 'escape';
+                    navState.recoveryUntil = now + 1.80;
+                } else {
+                    // Hand control back to go-around on the freest side.
+                    navState.recoveryPhase = '';
+                    navState.recoveryCooldownUntil = now + 2.50;
+                    navState.forceRose = 0;
+                    navState.roseMode = 1;
+                    navState.roseSide = navState.recoverySide;
+                    navState.stuckX = robot.position.x;
+                    navState.stuckZ = robot.position.z;
+                    navState.stuckSince = now;
+                    return null;
+                }
+            }
+
+            const side = navState.recoverySide < 0 ? -1 : 1;
+            if (navState.recoveryPhase === 'reverse') {
+                return {
+                    v: -MAX_SPEED * 0.50,
+                    omega: side * MAX_OMEGA * 0.55,
+                    recovery: 'reverse',
+                };
+            }
+            if (navState.recoveryPhase === 'look') {
+                return {
+                    v: MAX_SPEED * 0.12,
+                    omega: side * MAX_OMEGA * 0.90,
+                    recovery: 'look',
+                };
+            }
+            return {
+                v: MAX_SPEED * 0.70,
+                omega: side * MAX_OMEGA * 0.45,
+                recovery: 'escape',
+            };
+        }
+
+        if (now < (navState.recoveryCooldownUntil || 0)) return null;
+
+        if (!Number.isFinite(navState.stuckSince)) {
+            navState.stuckX = robot.position.x;
+            navState.stuckZ = robot.position.z;
+            navState.stuckSince = now;
+            return null;
+        }
+
+        const moved = Math.hypot(
+            robot.position.x - navState.stuckX,
+            robot.position.z - navState.stuckZ,
+        );
+        if (moved > threshold) {
+            navState.stuckX = robot.position.x;
+            navState.stuckZ = robot.position.z;
+            navState.stuckSince = now;
+            return null;
+        }
+        if (now - navState.stuckSince < stuckWindow) return null;
+
+        const free = chooseFreestHeading(headingErr, reading);
+        const angle = free.found ? free.angle : (reading.steerHint || 1) * 0.79;
+        let side = Math.abs(angle) < 0.15
+            ? (reading.steerHint || 1)
+            : (angle < 0 ? -1 : 1);
+        // Flip side if the previous recovery attempt failed in the same pocket.
+        if (navState.lastRecoverySide && navState.lastRecoverySide === side) {
+            side = -side;
+        }
+        navState.recoverySide = side;
+        navState.lastRecoverySide = side;
+        navState.roseSide = side;
+        navState.recoveryPhase = 'reverse';
+        navState.recoveryUntil = now + 0.70;
+        return {
+            v: -MAX_SPEED * 0.50,
+            omega: side * MAX_OMEGA * 0.55,
+            recovery: 'reverse',
+        };
+    }
+
     function pickRoseSide(headingErr, reading) {
         const left = polarClearance(reading, -0.79);
         const right = polarClearance(reading, 0.79);
@@ -341,77 +537,91 @@ export function createNavSystem(ctx) {
         return 1;
     }
 
-    // Go around the obstacle on one committed side. Never sit still spinning
-    // (that skipped reachable waypoints). Drive while turning; reverse only
-    // when overlapping or translation already failed.
+    // Go around the obstacle on one committed side. Prefer driving into the
+    // freest open heading — reverse only when already overlapping.
     function dontbeWebon(reading, navState) {
         const side = navState.roseSide < 0 ? -1 : 1;
-        const probe = 0.55;
         const yaw = robot.rotation.y;
-        const fx = robot.position.x + Math.sin(yaw) * probe;
-        const fz = robot.position.z + Math.cos(yaw) * probe;
-        const frontHit = queryPose(fx, fz, yaw);
-        const nowHit = queryPose(robot.position.x, robot.position.z, yaw);
-        const frontClear = Math.min(reading.forwardClear, polarClearance(reading, 0));
-        const wallClear = polarClearance(reading, -side * 1.22);
+        const free = chooseFreestHeading(0, reading);
+        const turn = free.found ? free.angle : side * 0.90;
+        const world = yaw + turn;
+        const probe = 0.70;
+        const fx = robot.position.x + Math.sin(world) * probe;
+        const fz = robot.position.z + Math.cos(world) * probe;
+        const frontHit = sensorConfig.hitTest ? queryPose(fx, fz, world) : { clear: 1 };
+        const nowHit = sensorConfig.hitTest
+            ? queryPose(robot.position.x, robot.position.z, yaw)
+            : { clear: 1 };
+        const frontClear = Math.min(
+            reading.forwardClear,
+            polarClearance(reading, turn),
+        );
 
         if (nowHit.clear === 0) {
             return {
-                v: -MAX_SPEED * 0.35,
-                omega: side * MAX_OMEGA * 0.80,
-                skip: 0,
-                webon: 1,
-            };
-        }
-        if (navState.forceRose && (frontHit.clear === 0 || frontClear < 1.10)) {
-            return {
-                v: -MAX_SPEED * 0.28,
+                v: -MAX_SPEED * 0.40,
                 omega: side * MAX_OMEGA * 0.85,
                 skip: 0,
                 webon: 1,
             };
         }
-        if (frontHit.clear === 0 || frontClear < 1.10) {
+
+        // Motion was blocked last frame: turn toward freest heading, keep creeping.
+        if (navState.forceRose) {
             return {
-                v: MAX_SPEED * 0.32,
+                v: frontHit.clear ? MAX_SPEED * 0.45 : -MAX_SPEED * 0.25,
+                omega: Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, turn * 1.80)),
+                skip: 0,
+                webon: 1,
+            };
+        }
+
+        if (frontHit.clear === 0 || frontClear < 0.85) {
+            return {
+                v: MAX_SPEED * 0.35,
                 omega: side * MAX_OMEGA * 0.90,
                 skip: 0,
                 webon: 1,
             };
         }
 
-        let omega = side * MAX_OMEGA * 0.40;
-        if (wallClear < 0.90) {
-            omega = side * MAX_OMEGA * 0.55;
-        }
         return {
-            v: MAX_SPEED * 0.72,
-            omega: Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, omega)),
+            v: MAX_SPEED * 0.80,
+            omega: Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, turn * 1.20 + side * 0.25)),
             skip: 0,
             webon: 1,
         };
     }
 
     function safetyCommand(headingErr, reading, navState) {
-        // Hit-test off = blind bumper mode: no go-around / rose avoidance.
-        // Motion + physics in main.js handle hard collisions and prop pushes.
-        if (!sensorConfig.hitTest) {
+        const step = 0.90;
+        const goalYaw = robot.rotation.y + headingErr;
+        const gx = robot.position.x + Math.sin(goalYaw) * step;
+        const gz = robot.position.z + Math.cos(goalYaw) * step;
+        const goalHit = sensorConfig.hitTest
+            ? queryPose(gx, gz, goalYaw)
+            : { clear: 1 };
+        const nowHit = sensorConfig.hitTest
+            ? queryPose(robot.position.x, robot.position.z, robot.rotation.y)
+            : { clear: 1 };
+        const goalClear = polarClearance(reading, headingErr);
+        const goalOpen = goalHit.clear === 1
+            && goalClear > 1.60
+            && nowHit.clear === 1;
+
+        // Sensors say the goal lane is open — resume normal path tracking.
+        if (goalOpen && !reading.blocked) {
             navState.roseMode = 0;
             navState.forceRose = 0;
             return null;
         }
-        const step = 0.80;
-        const gx = robot.position.x + Math.sin(robot.rotation.y + headingErr) * step;
-        const gz = robot.position.z + Math.cos(robot.rotation.y + headingErr) * step;
-        const goalHit = queryPose(gx, gz, robot.rotation.y + headingErr);
-        const nowHit = queryPose(robot.position.x, robot.position.z, robot.rotation.y);
-        const choke = reading.blocked
-            || navState.forceRose
-            || goalHit.clear === 0
-            || nowHit.clear === 0
-            || reading.forwardClear < 1.50;
 
-        if (!choke) {
+        const choke = reading.blocked
+            || nowHit.clear === 0
+            || goalHit.clear === 0
+            || (Number.isFinite(reading.forwardClear) && reading.forwardClear < 0.85);
+
+        if (!choke && !navState.forceRose) {
             navState.roseMode = 0;
             return null;
         }
@@ -460,6 +670,8 @@ export function createNavSystem(ctx) {
         const headingErr = normalizeAngle(goalAngle - robot.rotation.y);
         const blocked = reading.blocked;
         const clear = reading.forwardClear;
+        const recovery = stuckRecoveryCommand(headingErr, reading, navState);
+        if (recovery) return recovery;
         const safe = safetyCommand(headingErr, reading, navState);
         if (safe) return safe;
 

@@ -26,6 +26,7 @@ Saved source: `localStorage.customLoopJs`.
 | `lidar` | `Float32Array(36)` or empty |
 | `ultrasonic` | length-3 array |
 | `ir` | length-3 array |
+| `floorIr` | length-3 depression-edge array |
 | `MAX_SPEED`, `MAX_OMEGA` | Caps |
 
 ## Allowed APIs

@@ -44,7 +44,7 @@ Script module (not class-based). Owns scene, input, mission, Custom pad, telemet
 
 | Function | Role |
 |----------|------|
-| `hitInsetMeters()` | Footprint inset used in SAT checks |
+| `hitInsetMeters()` | Returns `0`; collision never shrinks from screen pixels |
 | `roverFootprintCorners(x, z, rotY, inset)` | 4 ground corners of rover hull |
 | `boxCorners2d(box)` | Obstacle box projected to XZ |
 | `projectSpan(corners, ax, az)` | SAT projection helper |
@@ -55,7 +55,17 @@ Script module (not class-based). Owns scene, input, mission, Custom pad, telemet
 | `depenetrateRobot()` | Nudge rover out of penetration |
 | `getRobotSensorOrigin(target)` | World point for raycasts (sensor height) |
 | `clampToArena(x, z)` / `clampRobotPosition()` | Keep inside `BUILD_LIMIT` |
+| `createTerrainStamp(points)` | Flat polygon stamp on the floor (✏️ tool) |
+| `setStampHeight(stamp, h)` | Extrude `h>0` mountain / `h<0` depression |
+| `terrainHeightAt(x, z)` | Relief height under a point |
+| `applyRoverTerrain(dt)` | Gravity / stick rover to stamped terrain |
+| `buildReliefGeometry(points, h)` | Triangulated visible mountain/depression |
+| `addReliefSensorWalls(stamp)` | Raised obstacle targets or sunken Floor-IR targets |
+| `polygonsIntersectGeneral(a, b)` | General polygon overlap, including concave stamps |
+| `terrainStampOverlap(rover)` | Find extruded stamp overlapping rover footprint |
 | `markCollision(position)` | Visual/log helper for hits |
+| `triggerSpringBumper()` | Compress visible bumper without overriding navigation |
+| `updateSpringBumper(dt)` | Spring-return animation and toggle visibility |
 
 ---
 
@@ -66,7 +76,7 @@ Script module (not class-based). Owns scene, input, mission, Custom pad, telemet
 | `interactionCanvas()` | `renderer.domElement` |
 | `capturePointerSafe` / `releasePointerSafe` | Pointer capture helpers |
 | `findPropFromMesh(object)` | Walk up mesh → prop record |
-| `pickSceneTarget(clientX, clientY)` | Ray pick: prop / robot / floor |
+| `pickSceneTarget(clientX, clientY)` | Ray pick: prop / robot / terrain stamp / floor |
 | `raycastWaypointHit` / `raycastPropAt` / `raycastRobotAt` | Specific hits |
 | `setRobotSelected(on)` | Selection highlight |
 | `raycastDragPlane` / `computeGrabOffset` | Drag on Y-plane |
@@ -117,7 +127,7 @@ See also [Custom JS](Custom-JS.md).
 | Function | Role |
 |----------|------|
 | `sensorListLabel()` / `updateSensorStatus()` | Left-panel sensor summary |
-| `applyMotion(v, omega, dt)` | Integrate pose; block translation on collision; spin wheels. Returns `1` if stalled |
+| `applyMotion(v, omega, dt)` | Swept integration; reject collisions, animate differential wheel speeds, trigger bumper. Returns `1` if stalled |
 | `distToGoal(target)` | Horizontal distance to waypoint |
 | `resetNavForWaypoint()` | Clear rose/Bug2 state for next WP |
 | `skipUnreachableWaypoint()` | Mark purple, advance index |

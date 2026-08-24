@@ -48,6 +48,15 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 2. **Pick an algorithm** → Pure Pursuit · Bug2 · DWA · VFH · Potential Field · Custom
 3. **Start Exploration** → watch the robot follow the path and dodge obstacles
 4. **Drag objects** from the right panel onto the scene → stack boxes/spheres/cylinders; the robot pushes them on contact
+5. **✏️ Draw shape** on the right panel → outline a polygon on the floor, then **Extrude** ↑ (mountain) or ↓ (depression)
+
+Extruded terrain is a **choke obstacle**: LIDAR/ultrasonic/IR detect its perimeter, hit-test blocks overlap, and path algorithms route around it. At `0 m`, the flat preview does not block.
+
+Sensors are modular and independently authoritative. LIDAR alone scans 360° on a slower cycle and evaluates a **3 m-wide rover corridor** per heading; ultrasonic alone covers the inexpensive front cone, and IR is a short **0.6 m** contact-zone sensor.
+
+The default hit-test uses the rover’s complete **2.8×3 m body-and-wheel footprint** in world meters. Its visible spring bumper compresses and springs back without overriding navigation, while swept substeps prevent tunneling through thin objects.
+
+**Floor IR** defaults **off** (rover drives into holes like a 4×4). Enable it to detect depression edges and route around them. If movement stays within `0.12 m` for `1.8 s`, shared recovery reverses, looks toward the clearest path, escapes, then resumes with a cooldown.
 
 ---
 
