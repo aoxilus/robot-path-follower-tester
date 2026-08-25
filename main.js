@@ -7,7 +7,7 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08252026 0015';
+const BUILD_STAMP = '08252026 0030';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
@@ -101,6 +101,10 @@ const translations = {
         logStampRemoved: 'TERRAIN: Removed shape',
         propEditHint: 'Sliders = selected prop, or defaults for next drop',
         clearObjectsBtn: 'Clear Objects',
+        hitObjectsLabel: 'Hit Objects',
+        hitObjectsHint: 'On: rover knocks props · Off: no push',
+        physicsLevelLabel: 'Physics level',
+        physicsLevelHint: '1 soft · 3 default · 5 Angry Birds',
         moveObjectsLabel: 'Move objects (hold+drag)',
         moveObjectsHint: 'Move Objects locks the camera for dragging',
         modeMoveObjects: 'Mode: Move Objects — drag props',
@@ -226,6 +230,10 @@ const translations = {
         logStampRemoved: 'TERRENO: Forma quitada',
         propEditHint: 'Sliders = prop seleccionado, o default del próximo drop',
         clearObjectsBtn: 'Quitar objetos',
+        hitObjectsLabel: 'Golpear objetos',
+        hitObjectsHint: 'On: el rover tumba props · Off: no empuja',
+        physicsLevelLabel: 'Nivel de física',
+        physicsLevelHint: '1 suave · 3 normal · 5 Angry Birds',
         moveObjectsLabel: 'Mover objetos (mantén+arrastra)',
         moveObjectsHint: 'Mover objetos bloquea la cámara para arrastrar',
         modeMoveObjects: 'Modo: Mover objetos — arrastra props',
@@ -2157,6 +2165,11 @@ function queryPose(x, z, rotY) {
 // Light props are pushable via cannon-es and must not block applyMotion.
 const HEAVY_PROP_KG = 25;
 
+/** Props react to rover graze. Independent from Spring bumper (hitTest). */
+let hitObjects = 1;
+/** 1 soft … 3 default … 5 Angry Birds launch. */
+let physicsLevel = 3;
+
 function poseBlocksMotion(x, z, rotY) {
     if (!sensorConfig.hitTest) {
         const inset = hitInsetMeters();
@@ -2243,15 +2256,19 @@ function getRobotSensorOrigin(target = new THREE.Vector3()) {
 const propLaunchCooldown = new WeakMap();
 
 function applyRobotPushImpulse(dt) {
-    if (dt <= 0 || !animating) return;
-    const robotBox = getRobotCollisionBox().expandByScalar(1.05);
+    if (dt <= 0 || !animating || !hitObjects) return;
+    const level = Math.max(1, Math.min(5, physicsLevel));
+    // Wider graze box at higher levels so light brushes still count.
+    const expand = 0.95 + level * 0.08;
+    const robotBox = getRobotCollisionBox().expandByScalar(expand);
     const rot = new THREE.Matrix4().extractRotation(robot.matrixWorld);
     const forward = new THREE.Vector3(0, 0, 1).applyMatrix4(rot).normalize();
     const right = new THREE.Vector3(1, 0, 0).applyMatrix4(rot).normalize();
-    const hitOff = !sensorConfig.hitTest;
-    // Angry Birds punch — hard launch on contact, not a tiny per-frame nudge.
-    const launchBase = hitOff ? 22 : 16;
+    // Independent of bumper: Hit Objects owns knock strength; bumper only affects block vs push path.
+    const levelMul = 0.35 + level * 0.35; // 1→0.70 · 3→1.40 · 5→2.10
+    const launchBase = 14 * levelMul;
     const now = performance.now();
+    const cooldownMs = Math.max(70, 180 - level * 18);
 
     physicsProps.forEach(({ mesh, body, mass, scale }) => {
         if (mass >= HEAVY_PROP_KG) return;
@@ -2275,19 +2292,20 @@ function applyRobotPushImpulse(dt) {
         const nz = fz / len;
         const launch = launchBase * (10 / Math.sqrt(Math.max(mass, 0.8))) * falloff;
         const last = propLaunchCooldown.get(body) || 0;
-        const freshHit = (now - last) > 140;
+        const freshHit = (now - last) > cooldownMs;
+        const lift = Math.max(2.2, launch * (0.35 + level * 0.06));
 
         if (freshHit) {
             propLaunchCooldown.set(body, now);
             body.velocity.x = nx * launch;
             body.velocity.z = nz * launch;
-            body.velocity.y = Math.max(4.5, launch * 0.55);
-            const spin = launch * (0.45 + (scale || 1) * 0.15);
+            body.velocity.y = lift;
+            const spin = launch * (0.35 + level * 0.08 + (scale || 1) * 0.12);
             body.angularVelocity.set(side * spin, (Math.random() - 0.5) * spin, -side * spin * 0.7);
         } else {
-            body.velocity.x += nx * launch * dt * 10;
-            body.velocity.z += nz * launch * dt * 10;
-            body.velocity.y += launch * dt * 3;
+            body.velocity.x += nx * launch * dt * (6 + level);
+            body.velocity.z += nz * launch * dt * (6 + level);
+            body.velocity.y += lift * dt * (1.5 + level * 0.3);
         }
         body.wakeUp();
     });
@@ -4246,6 +4264,7 @@ function buildErrorReport() {
         `Robot: x=${robot.position.x.toFixed(3)} y=${robot.position.y.toFixed(3)} z=${robot.position.z.toFixed(3)} heading=${robot.rotation.y.toFixed(3)}`,
         `Target: ${waypoint ? `x=${waypoint.x} z=${waypoint.z}` : 'none'}`,
         `Sensors: ${JSON.stringify(sensorConfig)}`,
+        `Hit objects: ${hitObjects ? 'on' : 'off'} · physics level ${physicsLevel}`,
         `Navigation: ${JSON.stringify(navDebug)}`,
         `Map:\n${JSON.stringify(buildMapSnapshot(), null, 2)}`,
         `Attempts (${missionAttempts.length}):\n${JSON.stringify(missionAttempts.slice(-30), null, 2)}`,
@@ -4738,6 +4757,25 @@ if (scaleSlider) {
 document.getElementById('clearObjectsBtn').addEventListener('click', () => {
     clearPhysicsProps();
 });
+
+const hitObjectsEl = document.getElementById('hitObjects');
+if (hitObjectsEl) {
+    hitObjectsEl.checked = hitObjects === 1;
+    hitObjectsEl.addEventListener('change', () => {
+        hitObjects = hitObjectsEl.checked ? 1 : 0;
+    });
+}
+
+const physicsLevelEl = document.getElementById('physicsLevel');
+const physicsLevelValueEl = document.getElementById('physicsLevelValue');
+if (physicsLevelEl) {
+    physicsLevelEl.value = String(physicsLevel);
+    if (physicsLevelValueEl) physicsLevelValueEl.textContent = String(physicsLevel);
+    physicsLevelEl.addEventListener('input', () => {
+        physicsLevel = Math.max(1, Math.min(5, parseInt(physicsLevelEl.value, 10) || 3));
+        if (physicsLevelValueEl) physicsLevelValueEl.textContent = String(physicsLevel);
+    });
+}
 
 document.getElementById('saveMapBtn')?.addEventListener('click', () => {
     saveMapToLocal();

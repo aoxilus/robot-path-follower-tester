@@ -118,6 +118,7 @@ Walkthrough: **[wiki/index.html](wiki/index.html)** · **[docs/HOW_IT_WORKS.md](
 - [x] Prop mass / scale inspector
 - [x] GitHub README screenshot
 - [x] Bilingual HTML wiki (`wiki/`)
+- [x] Hit Objects + physics level (v1.3)
 - [ ] GitHub Pages live demo
 
 ---

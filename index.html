@@ -177,6 +177,17 @@
             <input type="range" id="objectScale" min="0.25" max="3" step="0.05" value="1">
             <p id="propEditHint" class="hint" data-i18n="propEditHint">Sliders = selected prop, or defaults for next drop</p>
             <button type="button" id="clearObjectsBtn" class="btn btn-muted" data-i18n="clearObjectsBtn">Clear Objects</button>
+            <label class="sensor-check">
+              <input type="checkbox" id="hitObjects" checked>
+              <span data-i18n="hitObjectsLabel">Hit Objects</span>
+            </label>
+            <p class="hint" data-i18n="hitObjectsHint">On: rover knocks props · Off: no push</p>
+            <label for="physicsLevel" class="field-label">
+              <span data-i18n="physicsLevelLabel">Physics level</span>
+              <span id="physicsLevelValue" class="mass-value">3</span>
+            </label>
+            <input type="range" id="physicsLevel" min="1" max="5" step="1" value="3">
+            <p class="hint" data-i18n="physicsLevelHint">1 soft · 3 default · 5 Angry Birds</p>
           </section>
         </div>
       </aside>
