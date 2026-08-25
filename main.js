@@ -7,7 +7,7 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08242026 2356';
+const BUILD_STAMP = '08252026 0015';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
@@ -2293,24 +2293,92 @@ function applyRobotPushImpulse(dt) {
     });
 }
 
-// 📡 Sensor drawing — LIDAR on top, IR bumper rectangle, ultrasonic conoid
+// 📡 Sensor drawing — LIDAR hat, IR bulbs, Floor IR bulbs, ultrasonic cone
 const radarGroup = new THREE.Group();
 radarGroup.userData.sensorVisual = true;
 robot.add(radarGroup);
 radarGroup.position.set(0, 0.08, 0);
-const radarArcs = [];
 
-const irBand = new THREE.Mesh(
-    new THREE.BoxGeometry(2.65, 0.04, IR_RANGE),
-    new THREE.MeshBasicMaterial({
-        color: 0xffcc44,
-        transparent: true,
-        opacity: 0.22,
-        depthWrite: false,
-    }),
-);
-irBand.position.set(0, 0.06, ROBOT_COLLISION.halfLength + IR_RANGE / 2);
-radarGroup.add(irBand);
+function makeIrBulb(hex, emissiveHex) {
+    const g = new THREE.Group();
+    g.userData.sensorVisual = true;
+    const bulb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.10, 16, 12),
+        new THREE.MeshStandardMaterial({
+            color: hex,
+            emissive: emissiveHex,
+            emissiveIntensity: 1.4,
+            metalness: 0.15,
+            roughness: 0.30,
+        }),
+    );
+    bulb.castShadow = true;
+    const housing = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.09, 0.08, 12),
+        new THREE.MeshStandardMaterial({
+            color: 0x222830,
+            metalness: 0.6,
+            roughness: 0.35,
+        }),
+    );
+    housing.rotation.x = Math.PI / 2;
+    housing.position.z = -0.02;
+    const lens = new THREE.Mesh(
+        new THREE.CircleGeometry(0.07, 16),
+        new THREE.MeshBasicMaterial({
+            color: hex,
+            transparent: true,
+            opacity: 0.85,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+        }),
+    );
+    lens.position.z = 0.05;
+    // Short glowing stub so the IR “beam” is obvious (not a 1px line)
+    const stub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.035, 0.055, 0.55, 10),
+        new THREE.MeshBasicMaterial({
+            color: hex,
+            transparent: true,
+            opacity: 0.45,
+            depthWrite: false,
+        }),
+    );
+    stub.rotation.x = Math.PI / 2;
+    stub.position.z = 0.32;
+    g.add(housing, bulb, lens, stub);
+    g.userData.bulbMat = bulb.material;
+    g.userData.stub = stub;
+    g.userData.lens = lens;
+    return g;
+}
+
+// 3× IR front — red light bulbs on the bumper (L / C / R)
+const IR_BULB_Y = 0.62;
+const IR_BULB_Z = 1.88;
+const IR_BULB_X = [-0.95, 0, 0.95];
+const irBulbs = [];
+for (let i = 0; i < 3; i++) {
+    const bulb = makeIrBulb(0xff2222, 0xff0000);
+    bulb.position.set(IR_BULB_X[i], IR_BULB_Y, IR_BULB_Z);
+    robot.add(bulb);
+    irBulbs.push(bulb);
+}
+
+// Floor IR — amber bulbs under the nose, angled slightly down/out
+const FLOOR_BULB_Y = 0.18;
+const FLOOR_BULB_Z = 1.55;
+const FLOOR_BULB_X = [-0.55, 0, 0.55];
+const FLOOR_BULB_YAW = [-0.32, 0, 0.32];
+const floorIrBulbs = [];
+for (let i = 0; i < 3; i++) {
+    const bulb = makeIrBulb(0xffaa22, 0xff7700);
+    bulb.position.set(FLOOR_BULB_X[i], FLOOR_BULB_Y, FLOOR_BULB_Z);
+    bulb.rotation.y = FLOOR_BULB_YAW[i];
+    bulb.rotation.x = 0.55; // aim toward floor ahead
+    robot.add(bulb);
+    floorIrBulbs.push(bulb);
+}
 
 const usCone = new THREE.Mesh(
     new THREE.ConeGeometry(1.40, 4.00, 24, 1, true),
@@ -2324,6 +2392,7 @@ const usCone = new THREE.Mesh(
 );
 usCone.rotation.x = Math.PI / 2;
 usCone.position.set(0, 0.20, 3.50);
+usCone.userData.sensorVisual = true;
 radarGroup.add(usCone);
 
 const scanLinesGroup = new THREE.Group();
@@ -2338,8 +2407,115 @@ for (let i = 0; i < scanRaysCount; i++) {
     ]);
     const mat = new THREE.LineBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0, linewidth: 2 });
     const line = new THREE.Line(geo, mat);
+    line.frustumCulled = false;
     scanLinesGroup.add(line);
     scanRays.push(line);
+}
+
+// LIDAR unit — small spinning “hat” cylinder on the roof (stereotypical 360° scanner)
+const lidarHat = new THREE.Group();
+lidarHat.userData.sensorVisual = true;
+lidarHat.position.set(0, 1.58, 0);
+robot.add(lidarHat);
+const lidarHatBody = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.26, 0.20, 24),
+    new THREE.MeshStandardMaterial({
+        color: 0x1a1f26,
+        metalness: 0.55,
+        roughness: 0.35,
+        emissive: 0x003322,
+        emissiveIntensity: 0.25,
+    }),
+);
+lidarHatBody.castShadow = true;
+lidarHat.add(lidarHatBody);
+const lidarHatCap = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.16, 0.22, 0.06, 24),
+    new THREE.MeshStandardMaterial({
+        color: 0x2a333c,
+        metalness: 0.4,
+        roughness: 0.4,
+        emissive: 0x00aa66,
+        emissiveIntensity: 0.35,
+    }),
+);
+lidarHatCap.position.y = 0.12;
+lidarHat.add(lidarHatCap);
+const lidarHatRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.28, 0.025, 10, 32),
+    new THREE.MeshBasicMaterial({
+        color: 0x00ff88,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+    }),
+);
+lidarHatRing.rotation.x = Math.PI / 2;
+lidarHatRing.position.y = 0.04;
+lidarHat.add(lidarHatRing);
+
+function syncSensorVisuals(reading) {
+    // 3× IR front — red bumper bulbs + stubs
+    for (let i = 0; i < irBulbs.length; i++) {
+        const on = !!sensorConfig.ir;
+        irBulbs[i].visible = on;
+        if (!on) continue;
+        let dist = IR_RANGE;
+        if (reading && reading.ir && Number.isFinite(reading.ir[i])) {
+            dist = Math.max(0.08, Math.min(reading.ir[i], IR_RANGE));
+        }
+        const pulse = 1.1 + Math.sin(Date.now() / 180 + i) * 0.35;
+        irBulbs[i].userData.bulbMat.emissiveIntensity = pulse;
+        const stub = irBulbs[i].userData.stub;
+        stub.scale.y = Math.max(0.15, dist / 0.55);
+        stub.position.z = 0.08 + stub.scale.y * 0.275;
+        stub.material.opacity = dist < IR_RANGE * 0.85 ? 0.65 : 0.40;
+    }
+
+    // Floor IR — amber under-nose bulbs
+    for (let i = 0; i < floorIrBulbs.length; i++) {
+        const on = !!sensorConfig.floorIr;
+        floorIrBulbs[i].visible = on;
+        if (!on) continue;
+        let dist = FLOOR_IR_RANGE;
+        if (reading && reading.floorIr && Number.isFinite(reading.floorIr[i])) {
+            dist = Math.max(0.15, Math.min(reading.floorIr[i], FLOOR_IR_RANGE));
+        }
+        const pulse = 1.0 + Math.sin(Date.now() / 200 + i * 1.3) * 0.3;
+        floorIrBulbs[i].userData.bulbMat.emissiveIntensity = pulse;
+        const stub = floorIrBulbs[i].userData.stub;
+        // Longer stub for floor range, still readable
+        const len = Math.min(1.4, 0.35 + dist * 0.25);
+        stub.scale.y = len / 0.55;
+        stub.position.z = 0.08 + stub.scale.y * 0.275;
+        stub.material.opacity = 0.42;
+    }
+
+    // Ultrasonic cone
+    usCone.visible = !!sensorConfig.ultrasonic;
+    usCone.material.opacity = sensorConfig.ultrasonic ? 0.18 : 0;
+
+    // LIDAR hat + optional live scan rays (no idle fan — the cylinder is the icon)
+    const lidarOn = !!sensorConfig.lidar;
+    lidarHat.visible = lidarOn;
+    if (lidarOn) {
+        lidarHat.rotation.y += 0.04;
+        lidarHatRing.material.opacity = 0.45 + Math.sin(Date.now() / 220) * 0.15;
+    }
+    if (!lidarOn) {
+        for (let i = 0; i < scanRays.length; i++) {
+            scanRays[i].visible = false;
+            scanRays[i].material.opacity = 0;
+        }
+    } else if (reading && reading.lidar && typeof sensorSuite !== 'undefined' && sensorSuite.updateLidarVisuals) {
+        for (let i = 0; i < scanRays.length; i++) scanRays[i].visible = true;
+        sensorSuite.updateLidarVisuals(reading);
+    } else {
+        for (let i = 0; i < scanRays.length; i++) {
+            scanRays[i].visible = false;
+            scanRays[i].material.opacity = 0;
+        }
+    }
 }
 
 // 💥 Collision marker — red X on impact point
@@ -4289,6 +4465,7 @@ let selectedObjectType = 'sphere';
     el.addEventListener('change', () => {
         sensorConfig[key] = el.checked ? 1 : 0;
         updateSensorStatus();
+        if (typeof syncSensorVisuals === 'function') syncSensorVisuals(null);
     });
 });
 
@@ -4644,11 +4821,6 @@ function animate() {
     applyRoverTerrain(dt);
     updateSpringBumper(dt);
 
-    irBand.visible = sensorConfig.ir ? true : false;
-    usCone.visible = sensorConfig.ultrasonic ? true : false;
-    irBand.material.opacity = sensorConfig.ir ? 0.22 : 0;
-    usCone.material.opacity = sensorConfig.ultrasonic ? 0.18 : 0;
-
     const placingPath = mode === 'waypoints' && !animating;
     robotGlowRing.visible = placingPath;
     if (placingPath) {
@@ -4663,10 +4835,12 @@ function animate() {
         checkWaypointMission();
     }
 
+    let frameReading = null;
     if (animating && waypoints.length >= 1 && pathIndex < waypoints.length) {
         const target = waypoints[pathIndex];
         if (sensorConfig.hitTest) depenetrateRobot();
         const reading = sensorSuite.read();
+        frameReading = reading;
         // AABB overlap is noisy (axis-aligned inflate). Bumper visual only —
         // navigation trusts sensors + queryPose, not this false "blocked" inject.
         const poseHit = queryPose(robot.position.x, robot.position.z, robot.rotation.y);
@@ -4718,8 +4892,6 @@ function animate() {
             }
         }
 
-        sensorSuite.updateLidarVisuals(reading);
-
         if (!cmd.skip && activeAlgo === 'bug2' && navState.mode === 'BUG_FOLLOW') {
             const now = clock.getElapsedTime();
             if (now - navState.lastLogAt > 2) {
@@ -4727,10 +4899,9 @@ function animate() {
                 addLog(t('logBug2', { side: navState.bugSide > 0 ? 'R' : 'L' }));
             }
         }
-    } else if (!animating) {
-        scanRays.forEach((r) => { r.material.opacity = 0; });
-        clock.getDelta();
     }
+
+    syncSensorVisuals(frameReading);
 
     updateMoveHandle(clock.getElapsedTime());
 
