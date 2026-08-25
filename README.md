@@ -47,9 +47,9 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 
 1. **Click the center scene** → set waypoints (🟢 start · 🟡 middle · 🔴 end)
 2. **Pick an algorithm** → Bug2 (default) · Pure Pursuit · VFH · Custom
-3. **Start Mission** → watch the robot follow the path and dodge obstacles
-4. **Drag objects** from the right panel onto the scene → stack boxes/spheres/cylinders; the robot pushes them on contact
-5. **✏️ Draw shape** on the right panel → outline a polygon on the floor, then **Extrude** ↑ (mountain) or ↓ (depression)
+3. **Start Mission** → snapshot, then the robot follows the path. **Pause** freezes it. **Reset** restores the snapshot (does not wipe the map).
+4. **Drag objects** from the right panel onto the scene → stack boxes/spheres/cylinders. **Weight (kg)** = how much they move on collision (light flies, ≥25 kg barely moves). The robot pushes them on contact when Hit Objects is on.
+5. **✏️ Draw shape** on the right panel → outline a polygon on the floor, then **Extrude** ↑ (mountain) or ↓ (depression / hole)
 6. **Error Report** → robot state + recent log (Copy / JSON / CSV) for debugging
 
 Extruded terrain is a **choke obstacle**: LIDAR/ultrasonic/IR detect its perimeter, hit-test blocks overlap, and path algorithms route around it. At `0 m`, the flat preview does not block.
@@ -119,6 +119,8 @@ Walkthrough: **[wiki/index.html](wiki/index.html)** · **[docs/HOW_IT_WORKS.md](
 - [x] GitHub README screenshot
 - [x] Bilingual HTML wiki (`wiki/`)
 - [x] Hit Objects + physics level (v1.3)
+- [x] Pause + Reset restores pre-mission map
+- [x] Prop weight scales collision shove
 - [ ] GitHub Pages live demo
 
 ---

@@ -19,17 +19,19 @@ Toggle **EN / ES** at the top of the left panel.
 
 | Panel | Role |
 |-------|------|
-| **Left** | Sensors, algorithm, Start / Reset, waypoint vs object mode |
+| **Left** | Sensors, algorithm, Start / Pause / Reset, waypoint vs object mode |
 | **Center** | 3D arena (30×30 m). Short floor click = waypoint. Drag = camera |
 | **Right** | Drag spheres / cubes / cylinders, **✏️ draw terrain**, telemetry log |
 
 ## Mission loop
 
-1. Place waypoints on the floor (rover pose = start).
+1. Place waypoints on the floor (rover pose = start). Stack props while editing — **gravity is off** until Start.
 2. Pick an algorithm. Optionally enable LIDAR, ultrasonic, and/or 3× IR.
-3. **Start** — the rover drives waypoint to waypoint.
-4. A waypoint counts as **passed** within ~1.5 m (`WP_ACCEPT_RADIUS`).
-5. If unreachable after ~2 go-around circuits, it is **skipped** (purple) and the mission continues.
+3. **Start** — snapshot of map / rover / waypoints, then the rover drives. Physics (cannon-es) runs only during the mission.
+4. **Pause** — freeze rover and physics. Resume to continue.
+5. A waypoint counts as **passed** within ~1.5 m (`WP_ACCEPT_RADIUS`).
+6. If unreachable after ~2 go-around circuits, it is **skipped** (purple) and the mission continues.
+7. **Reset** — restore the snapshot from the last Start (does **not** wipe the map). Use **Clear Objects** to empty props.
 
 ## Sensors
 
@@ -46,9 +48,9 @@ Each sensor works independently. LIDAR alone uses a slower 360° scan and checks
 ## Interaction
 
 - **Waypoints** — short click floor; hold+drag rover.
-- **Props** — click to select; Weight / Scale sliders edit selection (or defaults for next drop).
+- **Props** — click to select; Weight / Scale sliders edit selection (or defaults for next drop). Light = flies on hit; **≥25 kg** barely moves.
 - **Move objects** — camera locked; drag cones and props.
-- **Draw shape (✏️)** — right panel. Drag on the floor to outline a polygon (concave loops kept). Flat in the plane until **Extrude**: **↑ raises a mountain**; **↓ sinks a depression** that follows your outline.
+- **Draw shape (✏️)** — right panel. Drag on the floor to outline a polygon (concave loops kept). Flat in the plane until **Extrude**: **↑ raises a mountain**; **↓ sinks a depression** that follows your outline. Rover tilts on slopes. Floor IR off = drive into holes; on = avoid the rim.
 
 If the rover remains within `0.08 m` for `1.5 s`, shared stuck recovery reverses, turns toward the clearest fused-sensor direction, escapes forward, and resumes the selected algorithm.
 
@@ -76,5 +78,6 @@ Every ~2 s the log records pose, waypoint, command, sensors, and nearby objects.
 
 - **Rover** — kinematic (`applyMotion`). Hull collides; **Hit Objects** adds a speed-scaled cannon-es impulse (no teleport).
 - **Stacks / spheres** — gravity + friction + sleep. Parked rover does not knock. Balls roll; they are not spin-locked.
-- **Dropped props / cones** — dynamic `cannon-es` bodies. See [Physics.md](Physics.md) for why fake knocks look robotic.
+- **Weight** — knock impulse scales with kg (light flies, heavy barely moves). **≥25 kg** skips hull shove and blocks like a cone.
+- **Dropped props / cones** — dynamic `cannon-es` bodies. Physics steps only while a mission is playing. See [Physics.md](Physics.md) for why fake knocks look robotic.
 - Teaching sandbox, not a validated differential-drive plant model.

@@ -7,7 +7,7 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08252026 0030';
+const BUILD_STAMP = '08252026 0455';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
@@ -45,6 +45,8 @@ const translations = {
         sensorStatusActive: 'Active: {list}',
         arenaHint: 'Arena {side}×{side} m ({area} m²) · robot 2×3 m · waypoints snap to grid',
         startBtn: 'Start Mission',
+        pauseBtn: 'Pause',
+        resumeBtn: 'Resume',
         resetBtn: 'Reset',
         waypointHint: 'Short-click floor = waypoint · Move Objects = drag props',
         pathFlowHint: 'Glow line shows your path',
@@ -59,6 +61,10 @@ const translations = {
         errorReportCopied: 'Report Copied',
         alertNeedWaypoints: 'Place at least one waypoint on the floor (rover position = start).',
         logInit: 'INIT: {algo} · {sensors} · {count} waypoints · accept radius {radius}m',
+        logPaused: 'PAUSED',
+        logResumed: 'RESUMED',
+        logMissionReset: 'RESET: map, rover, and waypoints restored',
+        logResetIdle: 'RESET: mission stopped (map kept)',
         logPassed: 'PASSED: Waypoint {index} (within {dist}m)',
         logSkipped: 'SKIPPED: Waypoint {index} unreachable (purple) — continuing',
         logDone: 'DONE: Mission complete. Passed {passed}/{total} · skipped {skipped}',
@@ -81,6 +87,7 @@ const translations = {
         objCylinder: 'Cylinder',
         objCone: 'Cone',
         objectMassLabel: 'Weight (kg)',
+        objectMassHint: 'Light flies · ≥25 kg barely moves (blocks like a cone)',
         objectScaleLabel: 'Scale',
         terrainSizeLabel: 'Size',
         terrainSizeHint: '10–60 m side',
@@ -102,7 +109,7 @@ const translations = {
         propEditHint: 'Sliders = selected prop, or defaults for next drop',
         clearObjectsBtn: 'Clear Objects',
         hitObjectsLabel: 'Hit Objects',
-        hitObjectsHint: 'On: rover knocks props · Off: no push',
+        hitObjectsHint: 'On: knock scales with weight · Off: no push',
         physicsLevelLabel: 'Physics level',
         physicsLevelHint: '1 soft · 3 default · 5 Angry Birds',
         moveObjectsLabel: 'Move objects (hold+drag)',
@@ -174,6 +181,8 @@ const translations = {
         sensorStatusActive: 'Activos: {list}',
         arenaHint: 'Arena {side}×{side} m ({area} m²) · robot 2×3 m · waypoints en rejilla',
         startBtn: 'Iniciar misión',
+        pauseBtn: 'Pausa',
+        resumeBtn: 'Continuar',
         resetBtn: 'Reiniciar',
         waypointHint: 'Clic corto en piso = waypoint · Mover objetos = arrastrar props',
         pathFlowHint: 'La línea muestra tu ruta',
@@ -188,6 +197,10 @@ const translations = {
         errorReportCopied: 'Reporte copiado',
         alertNeedWaypoints: 'Coloca al menos un waypoint en el suelo (posición del rover = inicio).',
         logInit: 'INICIO: {algo} · {sensors} · {count} waypoints · radio {radius}m',
+        logPaused: 'PAUSA',
+        logResumed: 'CONTINÚA',
+        logMissionReset: 'REINICIO: mapa, rover y waypoints restaurados',
+        logResetIdle: 'REINICIO: misión detenida (mapa conservado)',
         logPassed: 'PASADO: Waypoint {index} (a {dist}m)',
         logSkipped: 'OMITIDO: Waypoint {index} inalcanzable (morado) — continúa',
         logDone: 'FIN: Misión completa. Pasados {passed}/{total} · omitidos {skipped}',
@@ -210,6 +223,7 @@ const translations = {
         objCylinder: 'Cilindro',
         objCone: 'Cono',
         objectMassLabel: 'Peso (kg)',
+        objectMassHint: 'Liviano vuela · ≥25 kg casi no se mueve (bloquea como un cono)',
         objectScaleLabel: 'Escala',
         terrainSizeLabel: 'Tamaño',
         terrainSizeHint: 'Lado 10–60 m',
@@ -231,7 +245,7 @@ const translations = {
         propEditHint: 'Sliders = prop seleccionado, o default del próximo drop',
         clearObjectsBtn: 'Quitar objetos',
         hitObjectsLabel: 'Golpear objetos',
-        hitObjectsHint: 'On: el rover tumba props · Off: no empuja',
+        hitObjectsHint: 'On: el golpe escala con el peso · Off: no empuja',
         physicsLevelLabel: 'Nivel de física',
         physicsLevelHint: '1 suave · 3 normal · 5 Angry Birds',
         moveObjectsLabel: 'Mover objetos (mantén+arrastra)',
@@ -338,6 +352,9 @@ function applyLanguage(lang) {
     }
     if (typeof updateStampHeightUi === 'function') {
         updateStampHeightUi();
+    }
+    if (typeof updateMissionButtons === 'function') {
+        updateMissionButtons();
     }
 }
 
@@ -563,6 +580,14 @@ const ROBOT_COLLISION = {
     halfLength: 1.5,  // wheels/body extend total length to 3 m
     centerY: carHeight / 2 + 0.5,
 };
+// Cannon hull includes wheels (y≈0.06..1.5). The visual box sat at y=0.5..1.5 and
+// missed floor props, so contacts never formed.
+const ROBOT_PHYS = {
+    halfWidth: ROBOT_COLLISION.halfWidth,
+    halfHeight: 0.72,
+    halfLength: ROBOT_COLLISION.halfLength,
+    centerY: 0.78,
+};
 const ROBOT_WIDTH = ROBOT_COLLISION.halfWidth * 2;
 const ROBOT_LENGTH = ROBOT_COLLISION.halfLength * 2;
 const LIDAR_RANGE = Math.max(ROBOT_WIDTH, ROBOT_LENGTH) * 2;
@@ -677,32 +702,31 @@ for (let i = 0; i < 2; i++) {
     scene.add(obs);
     obstacles.push(obs);
 }
-obstacles[0].position.set(-3, CONE_HALF_H, -2);
-obstacles[1].position.set(4, CONE_HALF_H, 3);
+obstacles[0].position.set(-5, CONE_HALF_H, -4);
+obstacles[1].position.set(5, CONE_HALF_H, 4);
 
 // ⚙️ Physics (cannon-es) — stackable props the robot pushes on contact
 const physicsWorld = new CANNON.World();
 physicsWorld.gravity.set(0, -15, 0);
 physicsWorld.broadphase = new CANNON.NaiveBroadphase();
-// Keep props awake easily so light bumps start knock-over chains.
-physicsWorld.allowSleep = true;
-physicsWorld.solver.iterations = 14;
+physicsWorld.allowSleep = true; // settled stacks rest; knock / kinematic shove wakes them
+physicsWorld.solver.iterations = 18;
 
 const groundMaterial = new CANNON.Material('ground');
 const propMaterial = new CANNON.Material('prop');
 const robotMaterial = new CANNON.Material('robot');
 
 physicsWorld.addContactMaterial(new CANNON.ContactMaterial(groundMaterial, propMaterial, {
-    friction: 0.38,
-    restitution: 0.35,
+    friction: 0.62,
+    restitution: 0.12,
 }));
 physicsWorld.addContactMaterial(new CANNON.ContactMaterial(propMaterial, propMaterial, {
-    friction: 0.22,
-    restitution: 0.45,
+    friction: 0.48,
+    restitution: 0.12,
 }));
 physicsWorld.addContactMaterial(new CANNON.ContactMaterial(robotMaterial, propMaterial, {
-    friction: 0.20,
-    restitution: 0.40,
+    friction: 0.38,
+    restitution: 0.18,
 }));
 physicsWorld.addContactMaterial(new CANNON.ContactMaterial(robotMaterial, groundMaterial, {
     friction: 0.40,
@@ -712,6 +736,10 @@ physicsWorld.addContactMaterial(new CANNON.ContactMaterial(robotMaterial, ground
 const FILTER_GROUND = 1;
 const FILTER_TERRAIN = 2;
 const FILTER_PROP = 4;
+const FILTER_ROBOT = 8;
+const FILTER_HEAVY = 16;
+// ≥ this kg: no hull shove / no knock. Nav still treats them as solid.
+const HEAVY_PROP_KG = 25;
 
 const groundBody = new CANNON.Body({ mass: 0, material: groundMaterial });
 groundBody.addShape(new CANNON.Plane());
@@ -719,14 +747,22 @@ groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
 groundBody.collisionFilterGroup = FILTER_GROUND;
 physicsWorld.addBody(groundBody);
 
+const CONE_MASS = 14;
 const staticObstacleBodies = [];
 obstacles.forEach((obs) => {
     const obsHeight = carHeight + 0.5;
-    const body = new CANNON.Body({ mass: 0, material: groundMaterial });
-    const cylShape = new CANNON.Cylinder(1, 1.5, obsHeight, 10);
-    const cylQuat = new CANNON.Quaternion();
-    cylQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-    body.addShape(cylShape, new CANNON.Vec3(), cylQuat);
+    const body = new CANNON.Body({
+        mass: CONE_MASS,
+        material: propMaterial,
+        linearDamping: 0.05,
+        angularDamping: 0.12,
+        collisionFilterGroup: FILTER_PROP,
+        collisionFilterMask: -1,
+    });
+    body.sleepSpeedLimit = 0.18;
+    body.sleepTimeLimit = 1.6;
+    // cannon-es Cylinder is already Y-up (like Three.js). Do NOT rotate −90° (old cannon.js hack).
+    body.addShape(new CANNON.Cylinder(1, 1.5, obsHeight, 10));
     body.position.set(obs.position.x, obs.position.y, obs.position.z);
     body.quaternion.setFromEuler(0, obs.rotation.y, 0);
     physicsWorld.addBody(body);
@@ -736,7 +772,7 @@ obstacles.forEach((obs) => {
         mesh: obs,
         body,
         type: 'cone',
-        mass: 0,
+        mass: CONE_MASS,
         scale: 1,
         isStageCone: 1,
     };
@@ -748,14 +784,16 @@ const robotBody = new CANNON.Body({
     mass: 0,
     type: CANNON.Body.KINEMATIC,
     material: robotMaterial,
+    collisionFilterGroup: FILTER_ROBOT,
+    collisionFilterMask: FILTER_GROUND | FILTER_TERRAIN | FILTER_PROP,
 });
 robotBody.addShape(
     new CANNON.Box(new CANNON.Vec3(
-        ROBOT_COLLISION.halfWidth,
-        ROBOT_COLLISION.halfHeight,
-        ROBOT_COLLISION.halfLength,
+        ROBOT_PHYS.halfWidth,
+        ROBOT_PHYS.halfHeight,
+        ROBOT_PHYS.halfLength,
     )),
-    new CANNON.Vec3(0, ROBOT_COLLISION.centerY, 0),
+    new CANNON.Vec3(0, ROBOT_PHYS.centerY, 0),
 );
 physicsWorld.addBody(robotBody);
 
@@ -789,11 +827,10 @@ function addPropShapes(body, type, scale) {
         const h = 0.5 * s;
         body.addShape(new CANNON.Box(new CANNON.Vec3(h, h, h)));
     } else {
+        // cannon-es Cylinder axis = Y (matches Three CylinderGeometry). No −90° X rotation.
         const r = 0.5 * s;
         const h = 1 * s;
-        const cylQuat = new CANNON.Quaternion();
-        cylQuat.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-        body.addShape(new CANNON.Cylinder(r, r, h, 12), new CANNON.Vec3(), cylQuat);
+        body.addShape(new CANNON.Cylinder(r, r, h, 12));
     }
 }
 
@@ -831,16 +868,48 @@ function restPropOnSupport(prop, x, z) {
     const y = supportSurfaceY(x, z, prop) + half + 0.02;
     prop.mesh.position.set(x, y, z);
     prop.body.position.set(x, y, z);
-    prop.body.velocity.set(0, 0, 0);
     prop.body.angularVelocity.set(0, 0, 0);
+    if (typeof missionPhysicsOn === 'function' && missionPhysicsOn()) {
+        // Tiny downward speed so cannon-es seats the contact. v=0 + sleep = hover forever.
+        prop.body.velocity.set(0, -0.8, 0);
+        prop.body.wakeUp();
+    } else {
+        prop.body.velocity.set(0, 0, 0);
+        prop.body.sleep();
+    }
+}
+
+/** If a body is still above its support, sleep froze it — wake and drop. */
+function wakeUnsupportedProps() {
+    if (typeof isDraggingProp !== 'undefined' && isDraggingProp) return;
+    for (let i = 0; i < physicsProps.length; i++) {
+        const prop = physicsProps[i];
+        const body = prop.body;
+        if (!body || body.type !== CANNON.Body.DYNAMIC || body.mass < 0.05) continue;
+        const seat = supportSurfaceY(body.position.x, body.position.z, prop) + propHalfHeight(prop);
+        if (body.position.y <= seat + 0.22) continue;
+        body.wakeUp();
+        if (body.velocity.y > -0.2) body.velocity.y = -0.6;
+    }
+}
+
+function syncPropCollisionFilter(prop) {
+    if (!prop?.body || prop.isStageCone) return;
+    const heavy = prop.mass >= HEAVY_PROP_KG;
+    prop.body.collisionFilterGroup = heavy ? FILTER_HEAVY : FILTER_PROP;
+    // Heavy: stack with other props / ground, but not the kinematic hull.
+    prop.body.collisionFilterMask = heavy
+        ? (FILTER_GROUND | FILTER_TERRAIN | FILTER_PROP | FILTER_HEAVY)
+        : -1;
 }
 
 function setPropMass(prop, mass) {
     if (prop.isStageCone) return;
-    const bodyMass = Math.max(0.5, mass);
+    const bodyMass = Math.max(0.5, Math.min(80, mass));
     prop.mass = bodyMass;
     prop.body.mass = bodyMass;
     prop.body.updateMassProperties();
+    syncPropCollisionFilter(prop);
     prop.body.wakeUp();
 }
 
@@ -861,13 +930,13 @@ function setPropScale(prop, scale) {
 }
 
 function createPhysicsProp(type, x, y, z, mass = DEFAULT_PROP_MASS, scale = DEFAULT_PROP_SCALE) {
-    const bodyMass = Math.max(0.5, mass ?? DEFAULT_PROP_MASS);
+    const bodyMass = Math.max(0.5, Math.min(80, mass ?? DEFAULT_PROP_MASS));
     const s = Math.max(0.25, Math.min(3, scale ?? DEFAULT_PROP_SCALE));
     const body = new CANNON.Body({
         mass: bodyMass,
         material: propMaterial,
-        linearDamping: 0.03,
-        angularDamping: 0.08,
+        linearDamping: type === 'sphere' ? 0.02 : 0.04,
+        angularDamping: type === 'sphere' ? 0.04 : 0.10,
         collisionFilterGroup: FILTER_PROP,
         collisionFilterMask: -1,
     });
@@ -891,19 +960,28 @@ function createPhysicsProp(type, x, y, z, mass = DEFAULT_PROP_MASS, scale = DEFA
     }
 
     addPropShapes(body, type, s);
-    body.sleepSpeedLimit = 0.12;
-    body.sleepTimeLimit = 0.8;
+    body.sleepSpeedLimit = 0.18;
+    body.sleepTimeLimit = 1.6;
     mesh.scale.setScalar(s);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.position.set(x, y, z);
     body.position.set(x, y, z);
+    body.velocity.set(0, 0, 0);
+    body.angularVelocity.set(0, 0, 0);
+    if (typeof missionPhysicsOn === 'function' && missionPhysicsOn()) {
+        body.velocity.set(0, -0.6, 0);
+        body.wakeUp();
+    } else {
+        body.sleep();
+    }
 
     physicsWorld.addBody(body);
     scene.add(mesh);
     const entry = { mesh, body, type, mass: bodyMass, scale: s };
     mesh.userData.physicsProp = entry;
     physicsProps.push(entry);
+    syncPropCollisionFilter(entry);
     if (typeof collisionSys !== 'undefined') {
         collisionSys.addDynamicObstacle(mesh);
     }
@@ -1013,6 +1091,37 @@ function writeMapLibrary(list) {
     localStorage.setItem(MAP_LIBRARY_KEY, JSON.stringify(list.slice(0, MAP_LIBRARY_MAX)));
 }
 
+function poseJSON(body) {
+    return {
+        x: Number(body.position.x.toFixed(3)),
+        y: Number(body.position.y.toFixed(3)),
+        z: Number(body.position.z.toFixed(3)),
+        qx: Number(body.quaternion.x.toFixed(4)),
+        qy: Number(body.quaternion.y.toFixed(4)),
+        qz: Number(body.quaternion.z.toFixed(4)),
+        qw: Number(body.quaternion.w.toFixed(4)),
+    };
+}
+
+function applyStoredPose(prop, pose) {
+    if (!prop?.body || !pose) return;
+    const y = Number.isFinite(pose.y) ? pose.y : prop.body.position.y;
+    prop.body.position.set(
+        Number.isFinite(pose.x) ? pose.x : prop.body.position.x,
+        y,
+        Number.isFinite(pose.z) ? pose.z : prop.body.position.z,
+    );
+    if (Number.isFinite(pose.qx) && Number.isFinite(pose.qw)) {
+        prop.body.quaternion.set(pose.qx, pose.qy, pose.qz, pose.qw);
+    }
+    prop.body.velocity.set(0, 0, 0);
+    prop.body.angularVelocity.set(0, 0, 0);
+    if (prop.mesh) {
+        prop.mesh.position.copy(prop.body.position);
+        prop.mesh.quaternion.copy(prop.body.quaternion);
+    }
+}
+
 function serializeMap() {
     return {
         version: 1,
@@ -1025,17 +1134,12 @@ function serializeMap() {
             heading: Number(robot.rotation.y.toFixed(4)),
         },
         waypoints: waypoints.map((wp) => ({ x: wp.x, z: wp.z })),
-        cones: stageCones.map((c) => ({
-            x: Number(c.mesh.position.x.toFixed(3)),
-            z: Number(c.mesh.position.z.toFixed(3)),
-        })),
+        cones: stageCones.map((c) => poseJSON(c.body)),
         props: physicsProps.map((p) => ({
             type: p.type,
-            x: Number(p.mesh.position.x.toFixed(3)),
-            y: Number(p.mesh.position.y.toFixed(3)),
-            z: Number(p.mesh.position.z.toFixed(3)),
             mass: p.mass,
             scale: p.scale,
+            ...poseJSON(p.body),
         })),
         stamps: terrainStamps.map((s) => ({
             height: s.height,
@@ -1065,13 +1169,14 @@ function saveMapToLocal() {
     }
 }
 
-function applyMapData(data) {
+function applyMapData(data, opts = {}) {
     if (!data || data.version !== 1) {
         addLog(t('logMapBad'));
         return false;
     }
 
     animating = 0;
+    paused = 0;
     navState.mode = 'IDLE';
     deselectProp();
     setDrawTerrainMode(0);
@@ -1099,11 +1204,14 @@ function applyMapData(data) {
 
     if (Array.isArray(data.cones)) {
         for (let i = 0; i < stageCones.length && i < data.cones.length; i++) {
-            const c = clampToArena(data.cones[i].x, data.cones[i].z);
-            stageCones[i].mesh.position.x = c.x;
-            stageCones[i].mesh.position.z = c.z;
-            stageCones[i].mesh.position.y = CONE_HALF_H;
-            stageCones[i].body.position.set(c.x, CONE_HALF_H, c.z);
+            const pose = data.cones[i];
+            const c = clampToArena(pose.x, pose.z);
+            applyStoredPose(stageCones[i], {
+                ...pose,
+                x: c.x,
+                z: c.z,
+                y: Number.isFinite(pose.y) ? pose.y : CONE_HALF_H,
+            });
         }
     }
 
@@ -1121,7 +1229,7 @@ function applyMapData(data) {
             const p = data.props[i];
             if (!p || !PROP_HALF_HEIGHT[p.type]) continue;
             const clamped = clampToArena(p.x, p.z);
-            createPhysicsProp(
+            const entry = createPhysicsProp(
                 p.type,
                 clamped.x,
                 Number.isFinite(p.y) ? p.y : (PROP_HALF_HEIGHT[p.type] * (p.scale || 1) + 0.02),
@@ -1129,6 +1237,7 @@ function applyMapData(data) {
                 p.mass,
                 p.scale,
             );
+            applyStoredPose(entry, { ...p, x: clamped.x, z: clamped.z });
         }
     }
 
@@ -1147,7 +1256,8 @@ function applyMapData(data) {
     }
 
     updateModeUi();
-    addLog(t('logMapLoaded', { when: formatMapWhen(data.savedAt) }));
+    if (typeof updateMissionButtons === 'function') updateMissionButtons();
+    if (!opts.silent) addLog(t('logMapLoaded', { when: formatMapWhen(data.savedAt) }));
     return true;
 }
 
@@ -1228,20 +1338,91 @@ function loadMapFromLocal() {
 }
 
 const _robotPhysQ = new THREE.Quaternion();
-function syncRobotPhysicsBody() {
-    robotBody.position.set(robot.position.x, robot.position.y, robot.position.z);
+let _robotPhysPrevX = 0;
+let _robotPhysPrevY = 0;
+let _robotPhysPrevZ = 0;
+let _robotPhysPrevYaw = 0;
+let _robotPhysPrevT = 0;
+function syncRobotPhysicsBody(dt = 0) {
+    const px = robot.position.x;
+    const py = robot.position.y;
+    const pz = robot.position.z;
+    // Kinematic bodies only shove dynamics if they carry velocity — teleport alone does nothing.
+    if (dt > 1e-4 && _robotPhysPrevT > 0) {
+        // Kinematic hull must carry world velocity so cannon-es can shove dynamic props.
+        const shove = hitObjects ? (0.95 + physicsLevel * 0.12) : 1;
+        robotBody.velocity.set(
+            ((px - _robotPhysPrevX) / dt) * shove,
+            (py - _robotPhysPrevY) / dt,
+            ((pz - _robotPhysPrevZ) / dt) * shove,
+        );
+        robotBody.angularVelocity.set(0, (robot.rotation.y - (_robotPhysPrevYaw || robot.rotation.y)) / dt, 0);
+    } else {
+        robotBody.velocity.set(0, 0, 0);
+        robotBody.angularVelocity.set(0, 0, 0);
+    }
+    robotBody.position.set(px, py, pz);
     _robotPhysQ.setFromEuler(robot.rotation);
     robotBody.quaternion.set(_robotPhysQ.x, _robotPhysQ.y, _robotPhysQ.z, _robotPhysQ.w);
+    _robotPhysPrevX = px;
+    _robotPhysPrevY = py;
+    _robotPhysPrevZ = pz;
+    _robotPhysPrevYaw = robot.rotation.y;
+    _robotPhysPrevT = 1;
+}
+
+function missionPhysicsOn() {
+    return animating === 1 && paused === 0;
+}
+
+function holdBodiesToMeshes() {
+    const hold = (prop) => {
+        if (!prop?.body || !prop.mesh) return;
+        if (prop.body.type === CANNON.Body.KINEMATIC) return;
+        const p = prop.mesh.position;
+        const q = prop.mesh.quaternion;
+        prop.body.position.set(p.x, p.y, p.z);
+        prop.body.quaternion.set(q.x, q.y, q.z, q.w);
+        prop.body.velocity.set(0, 0, 0);
+        prop.body.angularVelocity.set(0, 0, 0);
+    };
+    physicsProps.forEach(hold);
+    stageCones.forEach(hold);
+}
+
+function wakeAllDynamics() {
+    const wake = (prop) => {
+        if (!prop?.body || prop.body.type === CANNON.Body.KINEMATIC) return;
+        prop.body.wakeUp();
+    };
+    physicsProps.forEach(wake);
+    stageCones.forEach(wake);
 }
 
 function stepPhysics(dt) {
-    syncRobotPhysicsBody();
+    syncRobotPhysicsBody(dt);
     if (typeof updatePropTerrainMasks === 'function') updatePropTerrainMasks();
-    physicsWorld.step(Math.min(dt, 1 / 30), dt, 5);
-    physicsProps.forEach(({ mesh, body }) => {
+    if (!missionPhysicsOn()) {
+        holdBodiesToMeshes();
+        return;
+    }
+    applyRobotPushImpulse(dt);
+    if (typeof wakeUnsupportedProps === 'function') wakeUnsupportedProps();
+    // One internalStep per frame (no accumulator). Passing (dt, dt, 5) skipped
+    // gravity whenever the accumulator stayed below the fixed step.
+    const h = Math.max(1 / 120, Math.min(dt || 1 / 60, 1 / 30));
+    physicsWorld.step(h);
+    const syncPhysMesh = ({ mesh, body }) => {
+        if (!Number.isFinite(body.position.x) || !Number.isFinite(body.position.y)) {
+            body.velocity.set(0, 0, 0);
+            body.angularVelocity.set(0, 0, 0);
+            return;
+        }
         mesh.position.copy(body.position);
         mesh.quaternion.copy(body.quaternion);
-    });
+    };
+    physicsProps.forEach(syncPhysMesh);
+    stageCones.forEach(syncPhysMesh);
 }
 
 // ✏️ Terrain stamps — draw a polygon, then extrude ↑ mountain / ↓ depression
@@ -2114,39 +2295,86 @@ function getRobotCollisionBox(target = new THREE.Box3()) {
     return target;
 }
 
-function queryPose(x, z, rotY) {
-    const inset = hitInsetMeters();
-    const rover = roverFootprintCorners(x, z, rotY, inset);
-    const box = new THREE.Box3();
+/** World AABB for a hypothetical rover pose (for 3D Box3 hit-tests). */
+function roverBoxAt(x, z, rotY, target = new THREE.Box3()) {
+    const c = roverFootprintCorners(x, z, rotY, 0);
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+    for (let i = 0; i < c.length; i++) {
+        if (c[i].x < minX) minX = c[i].x;
+        if (c[i].x > maxX) maxX = c[i].x;
+        if (c[i].z < minZ) minZ = c[i].z;
+        if (c[i].z > maxZ) maxZ = c[i].z;
+    }
+    const y0 = robot.position.y;
+    target.min.set(minX, y0, minZ);
+    target.max.set(maxX, y0 + ROBOT_COLLISION.centerY + ROBOT_COLLISION.halfHeight, maxZ);
+    return target;
+}
 
-    for (let i = 0; i < obstacles.length; i++) {
-        box.setFromObject(obstacles[i]);
-        if (polygonsOverlap(rover, boxCorners2d(box))) {
-            lastHitTest = {
-                clear: 0,
-                kind: 'cone',
-                id: i,
-                x: Number(obstacles[i].position.x.toFixed(2)),
-                z: Number(obstacles[i].position.z.toFixed(2)),
-            };
-            return lastHitTest;
+/**
+ * Hit-test / pose query.
+ * - Default (physics / motion): ALL solids — cones, props, terrain. Sensors never ghost the hull.
+ * - options.forNav=1 + Hit Objects: skip light props so Bug2 doesn't treat balls as walls.
+ * - options.detect=1: real Three.js Box3∩Box3 contact (bumper visual + knock).
+ */
+function queryPose(x, z, rotY, options = {}) {
+    const detect = options.detect === 1;
+    const skipCones = options.skipCones === 1;
+    const skipLightProps = detect
+        ? false
+        : (options.forNav === 1 && (!!hitObjects || options.skipLightProps === 1));
+    const box = new THREE.Box3();
+    const rover2d = roverFootprintCorners(x, z, rotY, 0);
+    const rover3d = detect ? roverBoxAt(x, z, rotY) : null;
+    // Tight world contact (~2 cm). Fat margins made stacks look “glued” and multi-hit.
+    const CONTACT_MARGIN = 0.02;
+
+    if (!skipCones) {
+        for (let i = 0; i < obstacles.length; i++) {
+            box.setFromObject(obstacles[i]);
+            const hit = detect
+                ? rover3d.clone().expandByScalar(CONTACT_MARGIN).intersectsBox(box)
+                : polygonsOverlap(rover2d, boxCorners2d(box));
+            if (hit) {
+                lastHitTest = {
+                    clear: 0,
+                    kind: 'cone',
+                    id: i,
+                    x: Number(obstacles[i].position.x.toFixed(2)),
+                    z: Number(obstacles[i].position.z.toFixed(2)),
+                    pushable: hitObjects ? 1 : 0,
+                };
+                return lastHitTest;
+            }
         }
     }
     for (let i = 0; i < physicsProps.length; i++) {
         const prop = physicsProps[i];
+        const light = prop.mass < HEAVY_PROP_KG;
+        if (skipLightProps && light) continue;
         box.setFromObject(prop.mesh);
-        if (polygonsOverlap(rover, boxCorners2d(box))) {
+        let hit;
+        if (detect) {
+            hit = rover3d.clone().expandByScalar(CONTACT_MARGIN).intersectsBox(box);
+        } else {
+            hit = polygonsOverlap(rover2d, boxCorners2d(box));
+        }
+        if (hit) {
             lastHitTest = {
                 clear: 0,
                 kind: prop.type,
                 id: i,
                 x: Number(prop.mesh.position.x.toFixed(2)),
                 z: Number(prop.mesh.position.z.toFixed(2)),
+                pushable: light ? 1 : 0,
             };
             return lastHitTest;
         }
     }
-    const terrainId = terrainStampOverlap(rover);
+    const terrainId = terrainStampOverlap(rover2d);
     if (terrainId >= 0) {
         lastHitTest = {
             clear: 0,
@@ -2154,68 +2382,38 @@ function queryPose(x, z, rotY) {
             id: terrainId,
             x: Number(x.toFixed(2)),
             z: Number(z.toFixed(2)),
+            pushable: 0,
         };
         return lastHitTest;
     }
-    lastHitTest = { clear: 1, kind: null, id: -1, x: null, z: null };
+    lastHitTest = { clear: 1, kind: null, id: -1, x: null, z: null, pushable: 0 };
     return lastHitTest;
+}
+
+/** Nav-only pose: may ignore pushable junk when Hit Objects is on. */
+function queryPoseForNav(x, z, rotY) {
+    return queryPose(x, z, rotY, { forNav: 1 });
 }
 
 // Blind mode: only immovable things stop the rover (static cones + heavy props).
 // Light props are pushable via cannon-es and must not block applyMotion.
-const HEAVY_PROP_KG = 25;
 
 /** Props react to rover graze. Independent from Spring bumper (hitTest). */
 let hitObjects = 1;
 /** 1 soft … 3 default … 5 Angry Birds launch. */
 let physicsLevel = 3;
 
+/**
+ * Solid world collision — independent of LIDAR / US / IR / bumper checkboxes.
+ * Sensors change what the *brain* sees; the hull always collides with immovables.
+ * With Hit Objects on, light props are pushable: do NOT freeze the rover against them
+ * (that blocked knock and looked like “nothing moves”).
+ */
 function poseBlocksMotion(x, z, rotY) {
-    if (!sensorConfig.hitTest) {
-        const inset = hitInsetMeters();
-        const rover = roverFootprintCorners(x, z, rotY, inset);
-        const box = new THREE.Box3();
-        for (let i = 0; i < obstacles.length; i++) {
-            box.setFromObject(obstacles[i]);
-            if (polygonsOverlap(rover, boxCorners2d(box))) {
-                lastHitTest = {
-                    clear: 0,
-                    kind: 'cone',
-                    id: i,
-                    x: Number(obstacles[i].position.x.toFixed(2)),
-                    z: Number(obstacles[i].position.z.toFixed(2)),
-                };
-                return 1;
-            }
-        }
-        for (let i = 0; i < physicsProps.length; i++) {
-            const prop = physicsProps[i];
-            if (prop.mass < HEAVY_PROP_KG) continue;
-            box.setFromObject(prop.mesh);
-            if (polygonsOverlap(rover, boxCorners2d(box))) {
-                lastHitTest = {
-                    clear: 0,
-                    kind: prop.type,
-                    id: i,
-                    x: Number(prop.mesh.position.x.toFixed(2)),
-                    z: Number(prop.mesh.position.z.toFixed(2)),
-                };
-                return 1;
-            }
-        }
-        const terrainId = terrainStampOverlap(rover);
-        if (terrainId >= 0) {
-            lastHitTest = {
-                clear: 0,
-                kind: 'terrain',
-                id: terrainId,
-                x: Number(x.toFixed(2)),
-                z: Number(z.toFixed(2)),
-            };
-            return 1;
-        }
-        lastHitTest = { clear: 1, kind: null, id: -1, x: null, z: null };
-        return 0;
+    // Dynamic cannon bodies (props + stage cones) must overlap the hull so the
+    // solver can knock them. Geometric freeze here looked like “no physics”.
+    if (hitObjects) {
+        return queryPose(x, z, rotY, { forNav: 1, skipCones: 1 }).clear === 0 ? 1 : 0;
     }
     return queryPose(x, z, rotY).clear === 0 ? 1 : 0;
 }
@@ -2225,20 +2423,21 @@ function robotIntersectsObstaclesAt(x, z, rotY) {
 }
 
 function depenetrateRobot() {
-    if (!sensorConfig.hitTest) return 0;
+    // Only resolve against immovable solids. Pushables are knocked by physics, not slid off.
     const hit = queryPose(robot.position.x, robot.position.z, robot.rotation.y);
     if (hit.clear) return 0;
+    if (hit.pushable) return 0;
     for (let ring = 1; ring <= 24; ring++) {
         const radius = COLLISION_RESOLVE_STEP * ring;
         for (let i = 0; i < 16; i++) {
             const angle = (i / 16) * Math.PI * 2;
             const nx = robot.position.x + Math.cos(angle) * radius;
             const nz = robot.position.z + Math.sin(angle) * radius;
-            if (queryPose(nx, nz, robot.rotation.y).clear) {
+            const probe = queryPose(nx, nz, robot.rotation.y);
+            if (probe.clear || probe.pushable) {
                 robot.position.x = nx;
                 robot.position.z = nz;
                 clampRobotPosition();
-                syncRobotPhysicsBody();
                 return 1;
             }
         }
@@ -2255,60 +2454,199 @@ function getRobotSensorOrigin(target = new THREE.Vector3()) {
 
 const propLaunchCooldown = new WeakMap();
 
+/** Cap cannon speeds so repeated tips don't explode the sim (vy:400 etc.). */
+function clampPropSpeed(body, maxLin = 16, maxAng = 20) {
+    if (!body) return;
+    const v = body.velocity;
+    const sp = Math.hypot(v.x, v.y, v.z);
+    if (sp > maxLin && sp > 1e-6) {
+        const s = maxLin / sp;
+        v.x *= s;
+        v.y *= s;
+        v.z *= s;
+    }
+    const w = body.angularVelocity;
+    const wsp = Math.hypot(w.x, w.y, w.z);
+    if (wsp > maxAng && wsp > 1e-6) {
+        const s = maxAng / wsp;
+        w.x *= s;
+        w.y *= s;
+        w.z *= s;
+    }
+}
+
+/** True if `upper` rests on `lower` (XZ overlap + bottom near top). */
+function isStackedOn(upper, lower) {
+    if (!upper?.mesh || !lower?.mesh || upper === lower) return false;
+    if (upper.mesh.position.y <= lower.mesh.position.y + 0.12) return false;
+    const ub = new THREE.Box3().setFromObject(upper.mesh);
+    const lb = new THREE.Box3().setFromObject(lower.mesh);
+    if (ub.max.x < lb.min.x || ub.min.x > lb.max.x
+        || ub.max.z < lb.min.z || ub.min.z > lb.max.z) return false;
+    return ub.min.y <= lb.max.y + 0.4;
+}
+
+function propsStackedOn(base) {
+    const out = [];
+    for (let i = 0; i < physicsProps.length; i++) {
+        const prop = physicsProps[i];
+        if (prop.mass >= HEAVY_PROP_KG) continue;
+        if (isStackedOn(prop, base)) out.push(prop);
+    }
+    return out;
+}
+
+function findSupportBelow(prop) {
+    let best = null;
+    let bestY = -Infinity;
+    for (let i = 0; i < physicsProps.length; i++) {
+        const other = physicsProps[i];
+        if (!isStackedOn(prop, other)) continue;
+        if (other.mesh.position.y > bestY) {
+            bestY = other.mesh.position.y;
+            best = other;
+        }
+    }
+    return best;
+}
+
+/** Wake sleeping stack neighbors so balls fall when the base is yanked (Angry Birds). */
+function wakeNearbyProps(origin, radius = 2.8) {
+    if (!origin || !origin.body) return;
+    const ox = origin.body.position.x;
+    const oy = origin.body.position.y;
+    const oz = origin.body.position.z;
+    for (let i = 0; i < physicsProps.length; i++) {
+        const prop = physicsProps[i];
+        if (prop === origin || !prop.body || prop.mass >= HEAVY_PROP_KG) continue;
+        const dx = prop.body.position.x - ox;
+        const dy = prop.body.position.y - oy;
+        const dz = prop.body.position.z - oz;
+        if ((dx * dx + dy * dy + dz * dz) <= radius * radius) {
+            prop.body.wakeUp();
+        }
+    }
+}
+
+/** Wake stacked pieces so gravity drops them. Scripted vy cancelled rolling and looked robotic. */
+function tipStackedProps(base, nx, nz, level, depth = 0) {
+    if (!base || depth > 4) return;
+    const tops = propsStackedOn(base);
+    for (let i = 0; i < tops.length; i++) {
+        const top = tops[i];
+        if (!top.body) continue;
+        top.body.wakeUp();
+        tipStackedProps(top, nx, nz, level, depth + 1);
+    }
+}
+
+function roverSpeedXZ() {
+    return Math.hypot(robotBody.velocity.x, robotBody.velocity.z);
+}
+
+/**
+ * Soft cannon-es shove. Never SET world velocity or teleport — that looked
+ * robotic and cancelled gravity / rolling.
+ */
+function knockPropAway(prop, level, opts = {}) {
+    if (!prop || !prop.body) return;
+    const tipOnly = opts.tipOnly === 1;
+    const dx = prop.body.position.x - robot.position.x;
+    const dz = prop.body.position.z - robot.position.z;
+    let dist = Math.hypot(dx, dz);
+    let nx;
+    let nz;
+    if (dist < 0.04) {
+        const yaw = robot.rotation.y;
+        nx = Math.sin(yaw);
+        nz = Math.cos(yaw);
+        dist = 0.04;
+    } else {
+        nx = dx / dist;
+        nz = dz / dist;
+    }
+
+    prop.body.wakeUp();
+    if (tipOnly) {
+        tipStackedProps(prop, nx, nz, level);
+        return;
+    }
+
+    const speed = Math.max(roverSpeedXZ(), 0.8);
+    // Impulse already /mass in cannon-es. Extra 5/kg so the Weight slider is obvious:
+    // 0.5 kg flies, 5 kg default shove, 40 kg barely budges.
+    const massScale = 5 / Math.max(prop.mass || DEFAULT_PROP_MASS, 0.5);
+    const mag = Math.min(
+        14,
+        speed * (0.9 + level * 0.35) * massScale,
+    );
+    const lift = mag * (0.06 + level * 0.02);
+    const impulse = new CANNON.Vec3(nx * mag, lift, nz * mag);
+    const r = propHalfHeight(prop) * 0.35;
+    prop.body.applyImpulse(impulse, new CANNON.Vec3(0, -r, 0));
+    if (prop.type === 'sphere') {
+        const rad = Math.max(0.2, 0.5 * (prop.scale || 1));
+        const roll = speed / rad;
+        prop.body.angularVelocity.x += -nz * roll * 0.35;
+        prop.body.angularVelocity.z += nx * roll * 0.35;
+        prop.body.angularDamping = 0.04;
+    }
+    clampPropSpeed(prop.body, 10, 14);
+    wakeNearbyProps(prop, 1.6);
+    tipStackedProps(prop, nx, nz, level);
+}
+
+/** All light cannon bodies whose AABB currently touches the rover. */
+function collectPushableContacts(x, z, rotY) {
+    const CONTACT_MARGIN = 0.03;
+    const rover3d = roverBoxAt(x, z, rotY).expandByScalar(CONTACT_MARGIN);
+    const box = new THREE.Box3();
+    const hits = [];
+    const consider = (prop) => {
+        if (!prop || !prop.body || prop.mass >= HEAVY_PROP_KG) return;
+        box.setFromObject(prop.mesh);
+        if (rover3d.intersectsBox(box)) hits.push(prop);
+    };
+    for (let i = 0; i < physicsProps.length; i++) consider(physicsProps[i]);
+    for (let i = 0; i < stageCones.length; i++) consider(stageCones[i]);
+    return hits;
+}
+
+function syncRobotPropCollisionMask() {
+    robotBody.collisionFilterMask = hitObjects
+        ? (FILTER_GROUND | FILTER_TERRAIN | FILTER_PROP)
+        : (FILTER_GROUND | FILTER_TERRAIN);
+}
+
+/** Write cannon-es velocities on overlap. The solver then integrates gravity / stacking. */
 function applyRobotPushImpulse(dt) {
-    if (dt <= 0 || !animating || !hitObjects) return;
+    syncRobotPropCollisionMask();
+    if (dt <= 0 || !hitObjects) return;
+    if (roverSpeedXZ() < 0.35) return;
     const level = Math.max(1, Math.min(5, physicsLevel));
-    // Wider graze box at higher levels so light brushes still count.
-    const expand = 0.95 + level * 0.08;
-    const robotBox = getRobotCollisionBox().expandByScalar(expand);
-    const rot = new THREE.Matrix4().extractRotation(robot.matrixWorld);
-    const forward = new THREE.Vector3(0, 0, 1).applyMatrix4(rot).normalize();
-    const right = new THREE.Vector3(1, 0, 0).applyMatrix4(rot).normalize();
-    // Independent of bumper: Hit Objects owns knock strength; bumper only affects block vs push path.
-    const levelMul = 0.35 + level * 0.35; // 1→0.70 · 3→1.40 · 5→2.10
-    const launchBase = 14 * levelMul;
     const now = performance.now();
-    const cooldownMs = Math.max(70, 180 - level * 18);
-
-    physicsProps.forEach(({ mesh, body, mass, scale }) => {
-        if (mass >= HEAVY_PROP_KG) return;
-        const propBox = new THREE.Box3().setFromObject(mesh);
-        if (!robotBox.intersectsBox(propBox)) {
-            propLaunchCooldown.delete(body);
-            return;
+    const cooldownMs = Math.max(160, 320 - level * 24);
+    const hits = collectPushableContacts(
+        robot.position.x,
+        robot.position.z,
+        robot.rotation.y,
+    );
+    if (hits.length === 0) return;
+    hits.sort((a, b) => a.mesh.position.y - b.mesh.position.y);
+    for (let i = 0; i < hits.length; i++) {
+        const prop = hits[i];
+        const last = propLaunchCooldown.get(prop.body) || 0;
+        if ((now - last) <= cooldownMs) continue;
+        propLaunchCooldown.set(prop.body, now);
+        let onAnotherHit = false;
+        for (let j = 0; j < i; j++) {
+            if (isStackedOn(prop, hits[j])) {
+                onAnotherHit = true;
+                break;
+            }
         }
-
-        const propCenter = new THREE.Vector3();
-        propBox.getCenter(propCenter);
-        const toProp = propCenter.clone().sub(robot.position);
-        toProp.y = 0;
-        const dist = Math.max(0.05, toProp.length());
-        const falloff = Math.max(0.35, 1 - dist / 4.0);
-        const side = Math.sign(toProp.dot(right)) || (Math.random() < 0.5 ? -1 : 1);
-        const fx = forward.x * 0.75 + right.x * side * 0.65 + toProp.x / dist * 0.35;
-        const fz = forward.z * 0.75 + right.z * side * 0.65 + toProp.z / dist * 0.35;
-        const len = Math.hypot(fx, fz) || 1;
-        const nx = fx / len;
-        const nz = fz / len;
-        const launch = launchBase * (10 / Math.sqrt(Math.max(mass, 0.8))) * falloff;
-        const last = propLaunchCooldown.get(body) || 0;
-        const freshHit = (now - last) > cooldownMs;
-        const lift = Math.max(2.2, launch * (0.35 + level * 0.06));
-
-        if (freshHit) {
-            propLaunchCooldown.set(body, now);
-            body.velocity.x = nx * launch;
-            body.velocity.z = nz * launch;
-            body.velocity.y = lift;
-            const spin = launch * (0.35 + level * 0.08 + (scale || 1) * 0.12);
-            body.angularVelocity.set(side * spin, (Math.random() - 0.5) * spin, -side * spin * 0.7);
-        } else {
-            body.velocity.x += nx * launch * dt * (6 + level);
-            body.velocity.z += nz * launch * dt * (6 + level);
-            body.velocity.y += lift * dt * (1.5 + level * 0.3);
-        }
-        body.wakeUp();
-    });
+        knockPropAway(prop, level, { tipOnly: onAnotherHit ? 1 : 0 });
+    }
 }
 
 // 📡 Sensor drawing — LIDAR hat, IR bulbs, Floor IR bulbs, ultrasonic cone
@@ -2581,6 +2919,8 @@ let pathFlowLine = null;
 let pathGlowLine = null;
 let mode = 'waypoints';
 let animating = 0;
+let paused = 0;
+let preMissionMap = null;
 let pathIndex = 0;
 let moveObjectsMode = 0;
 
@@ -2865,15 +3205,18 @@ function endPropDrag(clientX, clientY, snapGrid = true) {
     movePropOnPlane(dragProp, clientX, clientY, snapGrid);
     // Settle onto floor or on top of whatever sits under this XZ.
     restPropOnSupport(dragProp, dragProp.mesh.position.x, dragProp.mesh.position.z);
-    if (dragProp.isStageCone) {
-        dragProp.body.type = CANNON.Body.STATIC;
-        dragProp.body.mass = 0;
-        dragProp.body.updateMassProperties();
+    dragProp.body.type = CANNON.Body.DYNAMIC;
+    dragProp.body.mass = dragProp.isStageCone
+        ? CONE_MASS
+        : Math.max(0.5, dragProp.mass || DEFAULT_PROP_MASS);
+    dragProp.body.updateMassProperties();
+    if (missionPhysicsOn()) {
+        dragProp.body.wakeUp();
     } else {
-        dragProp.body.type = CANNON.Body.DYNAMIC;
+        dragProp.body.velocity.set(0, 0, 0);
+        dragProp.body.angularVelocity.set(0, 0, 0);
+        dragProp.body.sleep();
     }
-    dragProp.body.velocity.set(0, 0, 0);
-    dragProp.body.angularVelocity.set(0, 0, 0);
     addLog(t('logObjectMoved', {
         type: propTypeLabel(dragProp.type),
         x: dragProp.mesh.position.x.toFixed(1),
@@ -2991,6 +3334,7 @@ function placeObjectAtScreen(clientX, clientY, objectType) {
     if (!pose) return false;
 
     const entry = createPhysicsProp(objectType, pose.x, pose.y, pose.z, mass, scale);
+    restPropOnSupport(entry, pose.x, pose.z);
     selectProp(entry);
     addLog(t('logObjectPlaced', {
         type: propTypeLabel(objectType),
@@ -3119,6 +3463,7 @@ function endPaletteDrag(clientX, clientY) {
     clearPaletteDrag();
     if (!pose) return;
     const entry = createPhysicsProp(type, pose.x, pose.y, pose.z, mass, scale);
+    restPropOnSupport(entry, pose.x, pose.z);
     selectProp(entry);
     addLog(t('logObjectPlaced', {
         type: propTypeLabel(type),
@@ -3449,7 +3794,7 @@ const nav = createNavSystem({
     obstacles,
     getRobotCollisionBox,
     getRobotSensorOrigin,
-    queryPose,
+    queryPose: queryPoseForNav,
     scanRays,
     scanRaysCount,
     ROBOT_COLLISION,
@@ -3900,7 +4245,7 @@ function applyMotion(v, omega, dt) {
     while (robot.rotation.y > Math.PI) robot.rotation.y -= Math.PI * 2;
     while (robot.rotation.y < -Math.PI) robot.rotation.y += Math.PI * 2;
 
-    if (blocked && sensorConfig.hitTest && !queryPose(
+    if (blocked && !queryPose(
         robot.position.x,
         robot.position.z,
         robot.rotation.y,
@@ -3908,7 +4253,6 @@ function applyMotion(v, omega, dt) {
         depenetrateRobot();
     }
     clampRobotPosition();
-    syncRobotPhysicsBody();
 
     const actualDistance = Math.hypot(robot.position.x - x0, robot.position.z - z0);
     const actualLinear = dt > 0 ? actualDistance * Math.sign(v) / dt : 0;
@@ -3990,10 +4334,12 @@ function skipUnreachableWaypoint() {
     resetNavForWaypoint();
     if (pathIndex >= waypoints.length) {
         animating = 0;
+        paused = 0;
         navState.mode = 'IDLE';
         const passed = waypointsPassed.filter((v) => v === 1).length;
         const skipped = waypointsPassed.filter((v) => v === 'skipped').length;
         addLog(t('logDone', { passed, skipped, total: waypoints.length }));
+        updateMissionButtons();
     }
 }
 
@@ -4014,10 +4360,12 @@ function checkWaypointMission() {
         resetNavForWaypoint();
         if (pathIndex >= waypoints.length) {
             animating = 0;
+            paused = 0;
             navState.mode = 'IDLE';
             const passed = waypointsPassed.filter((v) => v === 1).length;
             const skipped = waypointsPassed.filter((v) => v === 'skipped').length;
             addLog(t('logDone', { passed, skipped, total: waypoints.length }));
+            updateMissionButtons();
             return false;
         }
     }
@@ -4050,7 +4398,7 @@ function recordMissionAttempt(kind, detail = '') {
 }
 
 function recordPoseTrail() {
-    if (!animating) return;
+    if (!animating || paused) return;
     const last = poseTrail[poseTrail.length - 1];
     const x = robot.position.x;
     const z = robot.position.z;
@@ -4082,14 +4430,23 @@ function buildMapSnapshot() {
             x: Number(c.mesh.position.x.toFixed(2)),
             z: Number(c.mesh.position.z.toFixed(2)),
         })),
-        props: physicsProps.map((p, i) => ({
-            i,
-            kind: p.type,
-            x: Number(p.mesh.position.x.toFixed(2)),
-            y: Number(p.mesh.position.y.toFixed(2)),
-            z: Number(p.mesh.position.z.toFixed(2)),
-            mass: p.mass,
-        })),
+        props: physicsProps.map((p, i) => {
+            const support = findSupportBelow(p);
+            const supportIdx = support ? physicsProps.indexOf(support) : -1;
+            const v = p.body?.velocity;
+            return {
+                i,
+                kind: p.type,
+                x: Number(p.mesh.position.x.toFixed(2)),
+                y: Number(p.mesh.position.y.toFixed(2)),
+                z: Number(p.mesh.position.z.toFixed(2)),
+                mass: p.mass,
+                stackedOn: supportIdx,
+                vx: v ? Number(v.x.toFixed(2)) : 0,
+                vy: v ? Number(v.y.toFixed(2)) : 0,
+                vz: v ? Number(v.z.toFixed(2)) : 0,
+            };
+        }),
         terrainStamps: terrainStamps.map((s, i) => ({
             i,
             height: s.height,
@@ -4386,12 +4743,54 @@ function addTelemetrySample(reading, cmd) {
     addLog(JSON.stringify(sample));
 }
 
+function updateMissionButtons() {
+    const pauseBtn = document.getElementById('pauseBtn');
+    if (!pauseBtn) return;
+    pauseBtn.disabled = !animating;
+    pauseBtn.textContent = paused ? t('resumeBtn') : t('pauseBtn');
+    pauseBtn.setAttribute('aria-pressed', paused ? 'true' : 'false');
+}
+
+function capturePreMissionMap() {
+    preMissionMap = JSON.parse(JSON.stringify(serializeMap()));
+}
+
+function restorePreMissionMap() {
+    paused = 0;
+    animating = 0;
+    navState.mode = 'IDLE';
+    dragProp = null;
+    isDraggingProp = 0;
+    isDraggingRobot = 0;
+    resetGestureState();
+    setRobotSelected(0);
+    setDrawTerrainMode(0);
+    collisionMarkers.forEach((m) => scene.remove(m));
+    collisionMarkers.length = 0;
+    if (preMissionMap) {
+        applyMapData(preMissionMap, { silent: 1 });
+        addLog(t('logMissionReset'));
+    } else {
+        addLog(t('logResetIdle'));
+        updateMissionButtons();
+        updateModeUi();
+    }
+}
+
 // 🎛️ UI wiring — start, reset, language, object panel
 document.getElementById('startBtn').addEventListener('click', () => {
+    if (animating && paused) {
+        paused = 0;
+        addLog(t('logResumed'));
+        updateMissionButtons();
+        return;
+    }
+    if (animating) return;
     if (waypoints.length < 1) {
         alert(t('alertNeedWaypoints'));
         return;
     }
+    capturePreMissionMap();
     missionStart = { x: robot.position.x, z: robot.position.z };
     pathIndex = 0;
     navState = {
@@ -4437,33 +4836,29 @@ document.getElementById('startBtn').addEventListener('click', () => {
         count: waypoints.length,
         radius: WP_ACCEPT_RADIUS,
     }));
+    paused = 0;
     animating = 1;
+    wakeAllDynamics();
+    updateMissionButtons();
+});
+
+document.getElementById('pauseBtn').addEventListener('click', () => {
+    if (!animating) return;
+    paused = paused ? 0 : 1;
+    if (!paused) wakeAllDynamics();
+    addLog(paused ? t('logPaused') : t('logResumed'));
+    updateMissionButtons();
 });
 
 document.getElementById('resetBtn').addEventListener('click', () => {
-    waypointMarkers.forEach((m) => scene.remove(m));
-    collisionMarkers.forEach((m) => scene.remove(m));
-    waypointMarkers = [];
-    collisionMarkers.length = 0;
-    waypoints = [];
-    waypointsPassed = [];
-    disposePathLines();
-    clearPhysicsProps();
-    dragProp = null;
-    isDraggingProp = 0;
-    isDraggingRobot = 0;
-    resetGestureState();
-    setRobotSelected(0);
-    setDrawTerrainMode(0);
-    animating = 0;
-    navState.mode = 'IDLE';
+    restorePreMissionMap();
     mode = 'waypoints';
     statusEl.textContent = t('modeSetWaypoints');
     updateModeUi();
-    robot.position.set(0, 0, 0);
-    robot.rotation.set(0, 0, 0);
-    robotVy = 0;
-    syncRobotPhysicsBody();
+    document.querySelectorAll('#modeGroup .toggle-btn').forEach((b) => {
+        b.classList.toggle('active', b.dataset.mode === 'waypoints');
+    });
+    syncCameraControls();
 });
 
 const clock = new THREE.Clock();
@@ -4763,6 +5158,7 @@ if (hitObjectsEl) {
     hitObjectsEl.checked = hitObjects === 1;
     hitObjectsEl.addEventListener('change', () => {
         hitObjects = hitObjectsEl.checked ? 1 : 0;
+        syncRobotPropCollisionMask();
     });
 }
 
@@ -4845,6 +5241,7 @@ updateStampHeightUi();
 applyLanguage(currentLang);
 updateModeUi();
 updateSensorStatus();
+updateMissionButtons();
 syncRobotPhysicsBody();
 const buildStampEl = document.getElementById('buildStamp');
 if (buildStampEl) buildStampEl.textContent = `build ${BUILD_STAMP}`;
@@ -4854,9 +5251,7 @@ function animate() {
     controls.update();
     const dt = Math.min(clock.getDelta(), 0.05);
 
-    stepPhysics(dt);
-    applyRobotPushImpulse(dt);
-    applyRoverTerrain(dt);
+    if (!paused) applyRoverTerrain(dt);
     updateSpringBumper(dt);
 
     const placingPath = mode === 'waypoints' && !animating;
@@ -4869,23 +5264,16 @@ function animate() {
         pathFlowLine.material.opacity = 0.7 + Math.sin(clock.getElapsedTime() * 3) * 0.25;
     }
 
-    if (animating && waypoints.length >= 1) {
+    if (animating && !paused && waypoints.length >= 1) {
         checkWaypointMission();
     }
 
     let frameReading = null;
-    if (animating && waypoints.length >= 1 && pathIndex < waypoints.length) {
+    if (animating && !paused && waypoints.length >= 1 && pathIndex < waypoints.length) {
         const target = waypoints[pathIndex];
         if (sensorConfig.hitTest) depenetrateRobot();
         const reading = sensorSuite.read();
         frameReading = reading;
-        // AABB overlap is noisy (axis-aligned inflate). Bumper visual only —
-        // navigation trusts sensors + queryPose, not this false "blocked" inject.
-        const poseHit = queryPose(robot.position.x, robot.position.z, robot.rotation.y);
-        if (sensorConfig.hitTest && poseHit.clear === 0) {
-            triggerSpringBumper();
-            markCollision(robot.position.clone());
-        }
 
         let cmd = computeNavCommand(
             activeAlgo,
@@ -4939,6 +5327,16 @@ function animate() {
         }
     }
 
+    // Motion first, then cannon-es: kinematic velocity matches this frame's drive.
+    stepPhysics(dt);
+    if (animating && !paused && sensorConfig.hitTest) {
+        const hullHit = queryPose(robot.position.x, robot.position.z, robot.rotation.y, { detect: 1 });
+        if (hullHit.clear === 0) {
+            triggerSpringBumper();
+            markCollision(robot.position.clone());
+        }
+    }
+
     syncSensorVisuals(frameReading);
 
     updateMoveHandle(clock.getElapsedTime());
@@ -4947,3 +5345,54 @@ function animate() {
 }
 
 animate();
+
+window.__phys = {
+    drop(type, x, z, y) {
+        const h = y != null ? y : (PROP_HALF_HEIGHT[type] || 0.5);
+        const entry = createPhysicsProp(type, x, h, z);
+        if (y == null) restPropOnSupport(entry, x, z);
+        return entry;
+    },
+    snapshot() {
+        return {
+            robot: {
+                x: +robot.position.x.toFixed(3),
+                y: +robot.position.y.toFixed(3),
+                z: +robot.position.z.toFixed(3),
+            },
+            props: physicsProps.map((p) => ({
+                type: p.type,
+                x: +p.mesh.position.x.toFixed(3),
+                y: +p.mesh.position.y.toFixed(3),
+                z: +p.mesh.position.z.toFixed(3),
+                vx: +p.body.velocity.x.toFixed(2),
+                vy: +p.body.velocity.y.toFixed(2),
+                vz: +p.body.velocity.z.toFixed(2),
+            })),
+            cones: stageCones.map((p) => ({
+                x: +p.mesh.position.x.toFixed(3),
+                y: +p.mesh.position.y.toFixed(3),
+                z: +p.mesh.position.z.toFixed(3),
+                vx: +p.body.velocity.x.toFixed(2),
+                vz: +p.body.velocity.z.toFixed(2),
+            })),
+            hitObjects,
+        };
+    },
+    placeWp(x, z) {
+        placeWaypointAt(x, z);
+        updateModeUi();
+        return waypoints.length;
+    },
+    stamp(points, height) {
+        const stamp = createTerrainStamp(points);
+        if (Number.isFinite(height) && height !== 0) setStampHeight(stamp, height);
+        return { n: terrainStamps.length, height: stamp.height };
+    },
+    clearStamps() {
+        while (terrainStamps.length > 0) {
+            removeTerrainStamp(terrainStamps[terrainStamps.length - 1]);
+        }
+        return terrainStamps.length;
+    },
+};

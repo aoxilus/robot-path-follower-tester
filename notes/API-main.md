@@ -35,7 +35,8 @@ Script module (not class-based). Owns scene, input, mission, Custom pad, telemet
 | `createPhysicsProp(type, x, y, z, mass)` | Mesh + CANNON body; registers with sensors |
 | `clearPhysicsProps()` | Remove all dynamic props |
 | `syncRobotPhysicsBody()` | Copy rover pose → kinematic CANNON body |
-| `stepPhysics(dt)` | World step + sync meshes from bodies |
+| `stepPhysics(dt)` | Mission playing: hull → impulse → `world.step` → meshes; else freeze bodies |
+| `setPropMass(prop, mass)` | 0.5–80 kg; ≥25 kg skips hull shove |
 | `applyRobotPushImpulse(dt)` | If rover speed ≥ 0.35 m/s, applyImpulse on overlapping light bodies (then `world.step`) |
 
 ---
@@ -171,5 +172,7 @@ Samples also exposed as `window.missionTelemetry`.
 | `waypoints`, `waypointMarkers`, `pathIndex` | Mission path |
 | `navState` | Bug2 / rose-around state machine |
 | `animating` | Mission running flag |
+| `paused` | Mission freeze (rover + physics) |
+| `preMissionMap` | Snapshot taken at Start; Reset restores it |
 | `physicsWorld`, `physicsProps` | cannon-es |
 | `sensorConfig`, `sensorSuite`, `computeNavCommand`, `setCustomRunner` | From `createNavSystem` |

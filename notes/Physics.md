@@ -11,6 +11,10 @@ The sim has **two** collision jobs that must stay split:
 
 The rover hull is **kinematic**. Props and stage cones are **dynamic**. Gravity is `(0, −15, 0)`.
 
+**Physics only runs while a mission is playing** (`Start` and not paused). While editing, `world.step` is skipped so you can stack props. **Reset** restores the map captured at the last Start.
+
+**Weight (kg)** scales the knock: light flies, heavy barely moves. At **≥25 kg** the hull does not shove them (they block like a cone). **Physics level** 1–5 is how hard the rover hits.
+
 ---
 
 ## What “robotic” hits were
@@ -60,7 +64,10 @@ They did not fail because cannon-es is unused. They failed because **scripted mo
 5. **Tight contact margin** (~3 cm), not 12 cm.  
 6. **Cones are dynamic** (~14 kg) and meshes follow bodies.  
 7. **Hit Objects off**: robot collision mask drops `FILTER_PROP` (no shove).  
-8. **After placing on a support:** give a small downward `vy` and `wakeUp()`. `velocity = 0` + sleep leaves a ball hovering and it will never fall.
+8. **After placing on a support:** small downward `vy` + `wakeUp()`.  
+9. **`world.step(h)` one argument** — accumulator `(h, dt, 5)` can skip gravity.  
+10. **After drag:** do not zero velocity or convert cones to `STATIC`.  
+11. **`wakeUnsupportedProps`**: if a body hangs in the air, wake it and drop.
 
 ---
 
@@ -76,8 +83,8 @@ They did not fail because cannon-es is unused. They failed because **scripted mo
 
 | Symbol | Role |
 |--------|------|
-| `stepPhysics` | sync kinematic hull → optional impulse → `world.step` → copy meshes |
+| `stepPhysics` | if mission playing: hull → impulse → `world.step` → meshes; else freeze bodies to meshes |
 | `knockPropAway` | `applyImpulse` + sphere roll; no teleport |
 | `applyRobotPushImpulse` | skipped unless rover is moving |
 | `ROBOT_PHYS` | cannon box including wheels |
-| `FILTER_ROBOT` / `FILTER_PROP` | Hit Objects mask |
+| `wakeUnsupportedProps` | Mid-air sleep recovery — gravity drop |

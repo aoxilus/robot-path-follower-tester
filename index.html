@@ -70,6 +70,7 @@
             <p class="hint arena-hint" data-i18n="arenaHint">Arena 30×30 m (900 m²) · robot 2×3 m · waypoints snap to grid</p>
             <div class="btn-row">
               <button type="button" id="startBtn" class="btn btn-primary" data-i18n="startBtn">Start Mission</button>
+              <button type="button" id="pauseBtn" class="btn btn-secondary" disabled>Pause</button>
               <button type="button" id="resetBtn" class="btn btn-danger" data-i18n="resetBtn">Reset</button>
             </div>
             <button type="button" id="showErrorReportBtn" class="btn btn-warn" data-i18n="showErrorReportBtn">Error Report</button>
@@ -169,7 +170,8 @@
               <span data-i18n="objectMassLabel">Weight (kg)</span>
               <span id="massValue" class="mass-value">5.0</span>
             </label>
-            <input type="range" id="objectMass" min="0.5" max="50" step="0.5" value="5">
+            <input type="range" id="objectMass" min="0.5" max="80" step="0.5" value="5">
+            <p class="hint" data-i18n="objectMassHint">Light flies · ≥25 kg barely moves (blocks like a cone)</p>
             <label for="objectScale" class="field-label">
               <span data-i18n="objectScaleLabel">Scale</span>
               <span id="scaleValue" class="mass-value">1.00</span>

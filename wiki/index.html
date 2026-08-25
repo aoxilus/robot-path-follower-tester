@@ -280,19 +280,27 @@ node scripts/smoke_sim.mjs</pre>
         <table>
           <thead><tr><th>Panel</th><th>Role</th></tr></thead>
           <tbody>
-            <tr><td><strong>Left</strong></td><td>Sensors, algorithm, Start / Reset, Error Report, Move Objects</td></tr>
+            <tr><td><strong>Left</strong></td><td>Sensors, algorithm, Start / Pause / Reset, Error Report, Move Objects</td></tr>
             <tr><td><strong>Center</strong></td><td>3D arena. Short click = waypoint. Orbit camera. Custom JS pad overlays here.</td></tr>
             <tr><td><strong>Right</strong></td><td>Drag props, save/load maps, draw terrain, prop weight/scale</td></tr>
           </tbody>
         </table>
         <h3>Mission loop</h3>
         <ol>
-          <li>Place waypoints (rover pose = start).</li>
+          <li>Place waypoints (rover pose = start). Stack props while editing — gravity is off until Start.</li>
           <li>Enable sensors and pick an algorithm.</li>
-          <li><strong>Start Mission</strong> — each frame: read sensors → compute <code>v</code>/<code>omega</code> → <code>applyMotion</code> → terrain tilt / physics.</li>
+          <li><strong>Start Mission</strong> — snapshot of the map, then each frame: sensors → <code>v</code>/<code>omega</code> → <code>applyMotion</code> → physics.</li>
+          <li><strong>Pause</strong> freezes rover and cannon-es. <strong>Reset</strong> restores the Start snapshot (does not wipe the map). Use <strong>Clear Objects</strong> to empty props.</li>
           <li>A waypoint is passed when the rover is close enough (or footprint touches it with bumper/hit-test on).</li>
           <li>Unreachable waypoints after go-around attempts are skipped (purple).</li>
         </ol>
+        <h3>Weight, mountains, holes</h3>
+        <ul>
+          <li><strong>Weight (kg)</strong> — light props fly on hit; heavier ones shove less. At <strong>≥25 kg</strong> they barely move and block like a cone.</li>
+          <li><strong>Physics level</strong> — 1 soft … 5 Angry Birds (how hard the rover knocks).</li>
+          <li><strong>Draw shape → Extrude ↑</strong> — mountain. The rover climbs and tilts. Perimeter blocks LIDAR / US / IR.</li>
+          <li><strong>Extrude ↓</strong> — hole. Floor IR off = 4×4 into the pit. Floor IR on = route around the rim.</li>
+        </ul>
         <h3>Data flow</h3>
         <pre>SensorSuite.read()  →  fused reading
 computeNavCommand() →  { v, omega }
@@ -307,19 +315,27 @@ cannon-es           →  props / cones the rover can push</pre>
         <table>
           <thead><tr><th>Panel</th><th>Rol</th></tr></thead>
           <tbody>
-            <tr><td><strong>Izquierda</strong></td><td>Sensores, algoritmo, Iniciar / Reset, Reporte de error, Mover objetos</td></tr>
+            <tr><td><strong>Izquierda</strong></td><td>Sensores, algoritmo, Iniciar / Pausa / Reset, Reporte de error, Mover objetos</td></tr>
             <tr><td><strong>Centro</strong></td><td>Arena 3D. Click corto = waypoint. Órbita de cámara. El pad Custom JS se abre aquí.</td></tr>
             <tr><td><strong>Derecha</strong></td><td>Arrastrar props, guardar/cargar mapas, dibujar terreno, peso/escala</td></tr>
           </tbody>
         </table>
         <h3>Ciclo de misión</h3>
         <ol>
-          <li>Coloca waypoints (la pose del rover es el inicio).</li>
+          <li>Coloca waypoints (la pose del rover es el inicio). Apila props en edición — la gravedad no corre hasta Iniciar.</li>
           <li>Activa sensores y elige algoritmo.</li>
-          <li><strong>Iniciar misión</strong> — cada frame: leer sensores → calcular <code>v</code>/<code>omega</code> → <code>applyMotion</code> → inclinación / física.</li>
+          <li><strong>Iniciar misión</strong> — snapshot del mapa, luego cada frame: sensores → <code>v</code>/<code>omega</code> → <code>applyMotion</code> → física.</li>
+          <li><strong>Pausa</strong> congela rover y cannon-es. <strong>Reset</strong> restaura el snapshot (no borra el mapa). <strong>Quitar objetos</strong> vacía los props.</li>
           <li>Un waypoint se pasa si el rover está cerca (o el footprint lo toca con hit-test on).</li>
           <li>Si no se alcanza tras rodeos, se omite (morado).</li>
         </ol>
+        <h3>Peso, montañas, hoyos</h3>
+        <ul>
+          <li><strong>Peso (kg)</strong> — livianos vuelan al golpe; más kilos = menos empuje. A <strong>≥25 kg</strong> casi no se mueven y bloquean como un cono.</li>
+          <li><strong>Nivel de física</strong> — 1 suave … 5 Angry Birds (qué tan duro empuja el rover).</li>
+          <li><strong>Dibujar forma → Extruir ↑</strong> — montaña. El rover sube e inclina. El perímetro bloquea LIDAR / US / IR.</li>
+          <li><strong>Extruir ↓</strong> — hoyo. IR de piso off = 4×4 al foso. IR de piso on = rodea el borde.</li>
+        </ul>
         <h3>Flujo de datos</h3>
         <pre>SensorSuite.read()  →  lectura fusionada
 computeNavCommand() →  { v, omega }
@@ -602,6 +618,24 @@ draw(robotX, robotZ)</pre>
       <h2 data-lang="en">7. FAQ</h2>
       <h2 data-lang="es">7. Preguntas frecuentes</h2>
 
+      <details>
+        <summary data-lang="en">Why do stacked props fall before I start?</summary>
+        <summary data-lang="es">¿Por qué se cae la torre antes de iniciar?</summary>
+        <p data-lang="en">They should not. Gravity and cannon-es run only during a playing mission (not paused). Stack while editing; <strong>Start</strong> turns physics on. <strong>Reset</strong> restores the snapshot from the last Start.</p>
+        <p data-lang="es">No deberían. Gravedad y cannon-es corren solo con la misión en marcha (sin pausa). Apila en edición; <strong>Iniciar</strong> enciende la física. <strong>Reset</strong> restaura el snapshot del último Start.</p>
+      </details>
+      <details>
+        <summary data-lang="en">How do I make objects move less (or more) on collision?</summary>
+        <summary data-lang="es">¿Cómo hago que los objetos se muevan menos (o más) al chocar?</summary>
+        <p data-lang="en">Select the prop and raise <strong>Weight (kg)</strong>. Light cubes/spheres fly; heavier ones shove less. At <strong>25 kg+</strong> they almost stay put and block the rover like a cone. <strong>Physics level</strong> 1–5 scales how hard the rover knocks. Uncheck <strong>Hit Objects</strong> to disable push.</p>
+        <p data-lang="es">Selecciona el prop y sube <strong>Peso (kg)</strong>. Livianos vuelan; más kilos = menos empuje. A <strong>25 kg+</strong> casi no se mueven y bloquean como un cono. El <strong>nivel de física</strong> 1–5 escala el golpe. Desmarca <strong>Golpear objetos</strong> para no empujar.</p>
+      </details>
+      <details>
+        <summary data-lang="en">How do mountains and holes work?</summary>
+        <summary data-lang="es">¿Cómo funcionan montañas y hoyos?</summary>
+        <p data-lang="en"><strong>Draw shape</strong>, outline a loop, then <strong>Extrude ↑</strong> (mountain) or <strong>↓</strong> (hole). The rover tilts on the slope. Mountains block path sensors. Holes: Floor IR off = drive in like a 4×4; Floor IR on = avoid the rim.</p>
+        <p data-lang="es"><strong>Dibujar forma</strong>, traza un lazo, luego <strong>Extruir ↑</strong> (montaña) o <strong>↓</strong> (hoyo). El rover se inclina en la pendiente. Las montañas bloquean sensores de ruta. Hoyos: IR de piso off = entra como 4×4; IR de piso on = evita el borde.</p>
+      </details>
       <details>
         <summary data-lang="en">Why doesn’t the rover avoid the hole?</summary>
         <summary data-lang="es">¿Por qué el rover no evita el hoyo?</summary>

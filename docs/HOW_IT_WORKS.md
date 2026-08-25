@@ -23,7 +23,7 @@ Three columns / Tres columnas:
 
 | Panel | What it does / Qué hace |
 |-------|-------------------------|
-| **Left** | Sensors, path algorithm, Start / Reset, waypoint vs object mode |
+| **Left** | Sensors, algorithm, Start / Pause / Reset, waypoint vs object mode |
 | **Center** | 3D arena (30×30 m). Short floor click = waypoint. Drag = camera |
 | **Right** | Drag spheres / cubes / cylinders, **✏️ draw terrain**, telemetry log |
 
@@ -31,22 +31,24 @@ Three columns / Tres columnas:
 
 ## Mission loop / Ciclo de misión
 
-1. Place waypoints on the floor (rover pose = start).
+1. Place waypoints on the floor (rover pose = start). Stack props while editing — **gravity is off** until Start.
 2. Pick an algorithm. Optionally enable LIDAR, ultrasonic, and/or 3× IR.
-3. **Start** — the rover drives waypoint to waypoint.
-4. A waypoint counts as **passed** when the rover center is within ~1.5 m (`WP_ACCEPT_RADIUS`), or — with **Spring bumper / hit test on** — when any part of the rover footprint touches the waypoint (center tip not required).
-5. If a waypoint cannot be reached after two go-around circuits, it is **skipped** (purple) and the mission continues.
+3. **Start** — snapshot of map / rover / waypoints, then the rover drives. Physics runs only while the mission plays (not paused).
+4. **Pause** freezes rover and props. **Reset** restores the Start snapshot (does not wipe the map). **Clear Objects** empties props.
+5. A waypoint counts as **passed** when the rover center is within ~1.5 m (`WP_ACCEPT_RADIUS`), or — with **Spring bumper / hit test on** — when any part of the rover footprint touches the waypoint (center tip not required).
+6. If a waypoint cannot be reached after two go-around circuits, it is **skipped** (purple) and the mission continues.
 
-1. Coloca waypoints en el suelo (la pose del rover es el inicio).
+1. Coloca waypoints en el suelo (la pose del rover es el inicio). Apila props en edición — **la gravedad no corre** hasta Iniciar.
 2. Elige un algoritmo. Activa LIDAR, ultrasónico y/o 3× IR si quieres.
-3. **Iniciar** — el rover recorre waypoint por waypoint.
-4. Un waypoint se **pasa** si el centro entra al radio (~1.5 m), o — con **hit test / parachoques on** — si cualquier parte del footprint toca el punto (no hace falta la punta central).
-5. Si no se puede alcanzar tras dos rodeos, se **omite** (morado) y la misión sigue.
+3. **Iniciar** — snapshot del mapa / rover / waypoints, luego el rover recorre. La física corre solo con la misión en marcha (sin pausa).
+4. **Pausa** congela rover y props. **Reset** restaura el snapshot (no borra el mapa). **Quitar objetos** vacía los props.
+5. Un waypoint se **pasa** si el centro entra al radio (~1.5 m), o — con **hit test / parachoques on** — si cualquier parte del footprint toca el punto (no hace falta la punta central).
+6. Si no se puede alcanzar tras dos rodeos, se **omite** (morado) y la misión sigue.
 
 **Interaction / Interacción**
 
 - **Waypoints** — short click on the floor to add; hold+drag the rover to move it.
-- **Objects** — drag from the right palette onto the scene. Click a prop to select it; **Weight** and **Scale** sliders edit the selection (or set defaults for the next drop).
+- **Objects** — drag from the right palette onto the scene. Click a prop to select it; **Weight** and **Scale** sliders edit the selection (or set defaults for the next drop). Light weight flies on hit; **≥25 kg** barely moves and blocks like a cone. **Physics level** 1–5 scales knock strength.
 - **Move objects** — checkbox: camera orbit/zoom locked; drag cones and props only.
 - **Draw shape (✏️)** — right panel. Drag on the floor to outline a polygon (concave loops are kept). It sits **flat** in the plane. Select it, then use **Extrude**: **↑ raises a mountain** and **↓ sinks a depression** that follows your outline.
 
