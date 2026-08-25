@@ -517,10 +517,14 @@ input[type="range"] {
 #viewport.drop-active {
   outline: 3px dashed var(--accent);
   outline-offset: -6px;
-  background: #1e2040;
 }
 
-#viewport.drop-active::after {
+/* Real 3D ghost is the drop cue — hide the old "Drop here" label */
+#viewport.palette-placing::after {
+  display: none;
+}
+
+#viewport.drop-active:not(.palette-placing)::after {
   content: attr(data-drop-label);
   position: absolute;
   top: 50%;
@@ -553,6 +557,7 @@ input[type="range"] {
   border-radius: 6px;
   cursor: grab;
   user-select: none;
+  touch-action: none;
   transition: border-color 0.15s, transform 0.15s, background 0.15s;
 }
 

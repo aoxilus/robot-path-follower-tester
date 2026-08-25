@@ -7,7 +7,7 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08242026 1540';
+const BUILD_STAMP = '08242026 2245';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
@@ -106,7 +106,7 @@ const translations = {
         moveObjectsLabel: 'Move objects (hold+drag)',
         moveObjectsHint: 'When on: camera locked (no zoom/orbit). Drag cones and props only.',
         modeMoveObjects: 'Move objects — camera locked · drag cones & props',
-        objectHint: 'Drag from palette to place. Click+drag props/cones to move. Scale/mass apply to selection.',
+        objectHint: 'Drag from palette — a 3D preview follows the cursor; release on the scene to place.',
         objectMoveHint: 'Hold and drag to move — release to drop',
         roverSelectedHint: 'Rover selected — hold+drag to move, then short-click floor for waypoints',
         logObjectMoved: 'OBJECT: Moved {type} to [{x}, {z}]',
@@ -216,7 +216,7 @@ const translations = {
         moveObjectsLabel: 'Mover objetos (mantén+arrastra)',
         moveObjectsHint: 'Activo: cámara bloqueada (sin zoom/órbita). Solo arrastra conos y props.',
         modeMoveObjects: 'Mover objetos — cámara bloqueada · arrastra conos y props',
-        objectHint: 'Arrastra del panel para colocar. Clic+arrastra props/conos. Escala/peso aplican a la selección.',
+        objectHint: 'Arrastra del panel — una figura 3D sigue el cursor; suelta en la escena para colocar.',
         objectMoveHint: 'Mantén y arrastra — suelta para soltar',
         roverSelectedHint: 'Rover seleccionado — mantén+arrastra para mover, luego clic corto en suelo para waypoints',
         logObjectMoved: 'OBJETO: {type} movido a [{x}, {z}]',
@@ -261,9 +261,7 @@ function algoDisplayName(algo) {
     const names = {
         pure_pursuit: t('algoNamePurePursuit'),
         bug2: t('algoNameBug2'),
-        dwa: t('algoNameDwa'),
         vfh: t('algoNameVfh'),
-        potential_field: t('algoNamePotential'),
         custom: t('algoNameCustom'),
     };
     return names[algo] ?? algo;
@@ -757,6 +755,39 @@ function addPropShapes(body, type, scale) {
 function propHalfHeight(prop) {
     if (prop.isStageCone) return CONE_HALF_H;
     return PROP_HALF_HEIGHT[prop.type] * (prop.scale || 1);
+}
+
+/** Top surface under (x, z): terrain or the highest prop/cone AABB that covers that point. */
+function supportSurfaceY(x, z, exclude = null) {
+    let y = terrainHeightAt(x, z);
+    const consider = (mesh) => {
+        if (!mesh) return;
+        const box = new THREE.Box3().setFromObject(mesh);
+        const pad = 0.08;
+        if (x < box.min.x + pad || x > box.max.x - pad
+            || z < box.min.z + pad || z > box.max.z - pad) return;
+        y = Math.max(y, box.max.y);
+    };
+    for (let i = 0; i < physicsProps.length; i++) {
+        const prop = physicsProps[i];
+        if (prop === exclude) continue;
+        consider(prop.mesh);
+    }
+    for (let i = 0; i < stageCones.length; i++) {
+        const cone = stageCones[i];
+        if (cone === exclude) continue;
+        consider(cone.mesh);
+    }
+    return y;
+}
+
+function restPropOnSupport(prop, x, z) {
+    const half = propHalfHeight(prop);
+    const y = supportSurfaceY(x, z, prop) + half + 0.02;
+    prop.mesh.position.set(x, y, z);
+    prop.body.position.set(x, y, z);
+    prop.body.velocity.set(0, 0, 0);
+    prop.body.angularVelocity.set(0, 0, 0);
 }
 
 function setPropMass(prop, mass) {
@@ -2174,6 +2205,8 @@ function beginRobotDrag(clientX, clientY, pointerId) {
 function endPropDrag(clientX, clientY, snapGrid = true) {
     if (!dragProp) return;
     movePropOnPlane(dragProp, clientX, clientY, snapGrid);
+    // Settle onto floor or on top of whatever sits under this XZ.
+    restPropOnSupport(dragProp, dragProp.mesh.position.x, dragProp.mesh.position.z);
     if (dragProp.isStageCone) {
         dragProp.body.type = CANNON.Body.STATIC;
         dragProp.body.mass = 0;
@@ -2288,9 +2321,6 @@ function updateModeUi() {
 }
 
 function placeObjectAtScreen(clientX, clientY, objectType) {
-    pointerToNdc(clientX, clientY);
-    raycaster.setFromCamera(mouse, camera);
-
     const massEl = document.getElementById('objectMass');
     const scaleEl = document.getElementById('objectScale');
     const mass = Number.isFinite(parseFloat(massEl?.value))
@@ -2299,28 +2329,146 @@ function placeObjectAtScreen(clientX, clientY, objectType) {
     const scale = Number.isFinite(parseFloat(scaleEl?.value))
         ? parseFloat(scaleEl.value)
         : DEFAULT_PROP_SCALE;
-    const placementTargets = [plane, ...terrainStampPickMeshes(), ...physicsProps.map((p) => p.mesh), ...obstacles];
+    const pose = placementPoseAtScreen(clientX, clientY, objectType, scale);
+    if (!pose) return false;
+
+    const entry = createPhysicsProp(objectType, pose.x, pose.y, pose.z, mass, scale);
+    selectProp(entry);
+    addLog(t('logObjectPlaced', {
+        type: propTypeLabel(objectType),
+        mass: mass.toFixed(1),
+        x: pose.x.toFixed(1),
+        z: pose.z.toFixed(1),
+    }));
+    return true;
+}
+
+/** Screen → snapped world pose for a prop type (stacks on objects below). */
+function placementPoseAtScreen(clientX, clientY, objectType, scale = DEFAULT_PROP_SCALE) {
+    pointerToNdc(clientX, clientY);
+    raycaster.setFromCamera(mouse, camera);
+    const placementTargets = [
+        plane,
+        ...terrainStampPickMeshes(),
+        ...physicsProps.map((p) => p.mesh),
+        ...obstacles,
+    ];
     const hits = raycaster.intersectObjects(placementTargets, false);
-    if (hits.length === 0) return false;
+    if (hits.length === 0) return null;
 
     const hit = hits[0];
-    const halfH = PROP_HALF_HEIGHT[objectType] * scale;
+    const s = Math.max(0.25, Math.min(3, scale));
+    const halfH = PROP_HALF_HEIGHT[objectType] * s;
     const rawX = Math.round(hit.point.x * 2) / 2;
     const rawZ = Math.round(hit.point.z * 2) / 2;
     const clamped = clampToArena(rawX, rawZ);
     const x = clamped.x;
     const z = clamped.z;
-    const y = terrainHeightAt(x, z) + halfH + 0.02;
+    const y = supportSurfaceY(x, z) + halfH + 0.02;
+    return { x, y, z };
+}
 
-    const entry = createPhysicsProp(objectType, x, y, z, mass, scale);
+let paletteDrag = null;
+
+function createPropGhostMesh(type, scale) {
+    const s = Math.max(0.25, Math.min(3, scale));
+    const mat = new THREE.MeshStandardMaterial({
+        color: PROP_COLORS[type] ?? 0xaaaaaa,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+        roughness: 0.4,
+        metalness: 0.08,
+        emissive: PROP_COLORS[type] ?? 0xaaaaaa,
+        emissiveIntensity: 0.18,
+    });
+    let mesh;
+    if (type === 'sphere') {
+        mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 24, 16), mat);
+    } else if (type === 'box') {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat);
+    } else {
+        mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 20), mat);
+    }
+    mesh.scale.setScalar(s);
+    mesh.renderOrder = 20;
+    mesh.frustumCulled = false;
+    return mesh;
+}
+
+function clearPaletteDrag() {
+    if (!paletteDrag) return;
+    const { ghost, item } = paletteDrag;
+    if (ghost) {
+        scene.remove(ghost);
+        ghost.geometry?.dispose?.();
+        ghost.material?.dispose?.();
+    }
+    item?.classList.remove('dragging');
+    viewport.classList.remove('drop-active', 'palette-placing');
+    paletteDrag = null;
+}
+
+function beginPaletteDrag(type, item, e) {
+    clearPaletteDrag();
+    selectedObjectType = type;
+    const scaleEl = document.getElementById('objectScale');
+    const massEl = document.getElementById('objectMass');
+    const scale = Number.isFinite(parseFloat(scaleEl?.value))
+        ? parseFloat(scaleEl.value)
+        : DEFAULT_PROP_SCALE;
+    const mass = Number.isFinite(parseFloat(massEl?.value))
+        ? parseFloat(massEl.value)
+        : DEFAULT_PROP_MASS;
+    const ghost = createPropGhostMesh(type, scale);
+    scene.add(ghost);
+    paletteDrag = {
+        type,
+        item,
+        ghost,
+        scale,
+        mass,
+        pointerId: e.pointerId,
+    };
+    item.classList.add('dragging');
+    viewport.classList.add('drop-active', 'palette-placing');
+    try {
+        item.setPointerCapture(e.pointerId);
+    } catch (_) { /* ignore */ }
+    updatePaletteGhost(e.clientX, e.clientY);
+}
+
+function updatePaletteGhost(clientX, clientY) {
+    if (!paletteDrag?.ghost) return;
+    const pose = placementPoseAtScreen(clientX, clientY, paletteDrag.type, paletteDrag.scale);
+    if (!pose) {
+        paletteDrag.ghost.visible = false;
+        return;
+    }
+    paletteDrag.ghost.visible = true;
+    paletteDrag.ghost.position.set(pose.x, pose.y, pose.z);
+}
+
+function endPaletteDrag(clientX, clientY) {
+    if (!paletteDrag) return;
+    const { type, mass, scale } = paletteDrag;
+    const over = (() => {
+        const r = viewport.getBoundingClientRect();
+        return clientX >= r.left && clientX <= r.right
+            && clientY >= r.top && clientY <= r.bottom;
+    })();
+    const pose = over ? placementPoseAtScreen(clientX, clientY, type, scale) : null;
+    clearPaletteDrag();
+    if (!pose) return;
+    const entry = createPhysicsProp(type, pose.x, pose.y, pose.z, mass, scale);
     selectProp(entry);
     addLog(t('logObjectPlaced', {
-        type: propTypeLabel(objectType),
+        type: propTypeLabel(type),
         mass: mass.toFixed(1),
-        x: x.toFixed(1),
-        z: z.toFixed(1),
+        x: pose.x.toFixed(1),
+        z: pose.z.toFixed(1),
     }));
-    return true;
+    updateModeUi();
 }
 
 function clampToArena(x, z) {
@@ -2617,7 +2765,7 @@ interactionCanvas().addEventListener('pointerup', onPointerUp);
 interactionCanvas().addEventListener('pointercancel', onPointerCancel);
 interactionCanvas().style.touchAction = 'none';
 
-// 🧠 Navigation — sensors + 5 algorithms (see nav.js)
+// 🧠 Navigation — sensors + 3 algorithms (see nav.js)
 let activeAlgo = 'pure_pursuit';
 let navState = {
     mode: 'IDLE',
@@ -3706,31 +3854,6 @@ const ALGO_HELP = {
             '// else TRACK toward waypoint',
         ].join('\n'),
     },
-    dwa: {
-        title: 'DWA (Dynamic Window)',
-        body: [
-            'Samples many (v, omega) pairs inside the robot speed limits.',
-            'Simulates a short future pose for each pair and scores progress + clearance.',
-            '',
-            'Sensors this mode uses:',
-            '• polar map — PRIMARY (built from LIDAR; Ultrasonic/IR fuse into polar)',
-            '• forwardClear — fallback if polar is missing',
-            '• steerHint — emergency turn if no candidate scores',
-            '• Spring bumper (hit test) — shared safety / pose checks',
-            '',
-            'Recommended: LIDAR on. Ultrasonic and IR improve the same polar map.',
-            'Floor IR (if on) also fuses into polar and can mark holes as blocked.',
-        ].join('\n'),
-        code: [
-            '// nav.js — dwa (simplified)',
-            'for v in [0 .. MAX_SPEED]:',
-            '  for omega in [-MAX_OMEGA .. MAX_OMEGA]:',
-            '    simulate pose for 0.6 s',
-            '    clearance = polar[turnDirection]  // needs LIDAR/US/IR',
-            '    score = v*1.2 - |toGoal|*2 + clearance*0.4',
-            'return best { v, omega }',
-        ].join('\n'),
-    },
     vfh: {
         title: 'VFH (Vector Field Histogram)',
         body: [
@@ -3748,32 +3871,9 @@ const ALGO_HELP = {
             '// nav.js — vfh (simplified)',
             'if (polar) histogram from LIDAR/US polar bins',
             'else if (ir) fill front sectors from IR×3',
-            'cost = histogram[s]*3 + distanceToGoalSector(s)*0.4',
+            'cost = histogram[s]*4 + distanceToGoalSector(s)*0.35',
             'pick sector with min cost',
-            'omega = chosenAngle * 1.8',
-        ].join('\n'),
-    },
-    potential_field: {
-        title: 'Potential Field',
-        body: [
-            'Virtual forces: attract to the waypoint, repel from nearby obstacles.',
-            '',
-            'Sensors this mode uses:',
-            '• polar map — PRIMARY repulsion (LIDAR / Ultrasonic fused)',
-            '• IR ×3 — extra short-range repulsion left/center/right',
-            '• blocked — slows when sensors mark the front choked',
-            '• Spring bumper (hit test) — shared go-around',
-            '• Floor IR (if on) — hole edges enter polar repulsion',
-            '',
-            'Recommended: LIDAR + IR. Can trap in local minima; recovery helps.',
-        ].join('\n'),
-        code: [
-            '// nav.js — potential_field (simplified)',
-            'attract = toward waypoint',
-            'repel = sum(-dir / dist) from polar hits < 2.5 m',
-            'repel += IR left/center/right terms',
-            'desired = attract + repel',
-            'omega = atan2(desired) * 2',
+            'omega = chosenAngle * 2.0',
         ].join('\n'),
     },
     custom: {
@@ -3846,37 +3946,31 @@ document.querySelectorAll('#modeGroup .toggle-btn').forEach((btn) => {
 });
 
 document.querySelectorAll('.drag-item').forEach((item) => {
-    item.addEventListener('dragstart', (e) => {
-        selectedObjectType = item.dataset.type;
-        e.dataTransfer.setData('application/x-prop-type', item.dataset.type);
-        e.dataTransfer.effectAllowed = 'copy';
-        item.classList.add('dragging');
+    item.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || animating) return;
+        e.preventDefault();
+        e.stopPropagation();
+        beginPaletteDrag(item.dataset.type, item, e);
     });
-    item.addEventListener('dragend', () => {
-        item.classList.remove('dragging');
-        viewport.classList.remove('drop-active');
+    item.addEventListener('pointermove', (e) => {
+        if (!paletteDrag || paletteDrag.pointerId !== e.pointerId) return;
+        updatePaletteGhost(e.clientX, e.clientY);
+        e.preventDefault();
+    });
+    item.addEventListener('pointerup', (e) => {
+        if (!paletteDrag || paletteDrag.pointerId !== e.pointerId) return;
+        endPaletteDrag(e.clientX, e.clientY);
+        e.preventDefault();
+    });
+    item.addEventListener('pointercancel', (e) => {
+        if (!paletteDrag || paletteDrag.pointerId !== e.pointerId) return;
+        clearPaletteDrag();
     });
 });
 
-viewport.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-    viewport.classList.add('drop-active');
-});
-
-viewport.addEventListener('dragleave', (e) => {
-    if (!viewport.contains(e.relatedTarget)) {
-        viewport.classList.remove('drop-active');
-    }
-});
-
-viewport.addEventListener('drop', (e) => {
-    e.preventDefault();
-    viewport.classList.remove('drop-active');
-    const objectType = e.dataTransfer.getData('application/x-prop-type') || selectedObjectType;
-    if (!objectType) return;
-    if (placeObjectAtScreen(e.clientX, e.clientY, objectType)) {
-        updateModeUi();
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && paletteDrag) {
+        clearPaletteDrag();
     }
 });
 

@@ -60,9 +60,7 @@ All modes first pass a **local safety layer** (`dontbeWebon` / `safetyCommand`):
 |------|-----|------|
 | Pure Pursuit | `pure_pursuit` | Steer toward waypoint; slow if front is tight |
 | Bug2 | `bug2` | M-line to goal; boundary follow when blocked |
-| DWA | `dwa` | Sample short `(v, ω)` candidates |
 | VFH | `vfh` | Clearest sector of the polar histogram |
-| Potential Field | `potential_field` | Attract to waypoint, repel from hits |
 | Custom | `custom` | Your `loop()` in the JS pad — see [Custom JS](Custom-JS.md) |
 
 ## Telemetry

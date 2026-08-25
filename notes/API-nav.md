@@ -88,9 +88,7 @@ Builds sensors + navigation. Returns:
 | `custom` | `customRunner(ctx)` or `defaultCustomCommand` |
 | `pure_pursuit` | `omega ∝ headingErr`; slow if `forwardClear` tight |
 | `bug2` | `TRACK` along M-line; `BUG_FOLLOW` along boundary until re-acquire |
-| `dwa` | Grid of `(v, ω)`; score progress + clearance |
-| `vfh` | Histogram sectors; pick lowest cost toward goal |
-| `potential_field` (default) | Attractive force to WP + repulsive from polar/IR hits |
+| `vfh` (default fallback) | Histogram sectors; pick lowest cost toward goal |
 
 Returns at least `{ v, omega }`. Safety may also set `skip` / `webon`.
 

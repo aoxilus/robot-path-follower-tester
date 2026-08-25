@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
 const requiredFiles = ['package.json', 'index.html', 'main.js', 'nav.js', 'style.css'];
-const algorithmIds = ['pure_pursuit', 'bug2', 'dwa', 'vfh', 'potential_field'];
+const algorithmIds = ['pure_pursuit', 'bug2', 'vfh'];
 
 let allPassed = true;
 

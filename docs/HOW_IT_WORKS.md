@@ -106,9 +106,9 @@ La recuperación reemplaza el umbral visual de “±5 px” por un umbral establ
 
 ## Algorithms / Algoritmos
 
-All five built-in modes plus Custom live in **`nav.js`**. There is no `algorithms/` folder.
+Three mainstream built-in modes plus Custom live in **`nav.js`**. There is no `algorithms/` folder.
 
-Los cinco modos y Custom viven en **`nav.js`**. No hay carpeta `algorithms/`.
+Tres modos mainstream y Custom viven en **`nav.js`**. No hay carpeta `algorithms/`.
 
 Each algorithm row has a **?** button (GUI English): opens a popup with a short explanation and simplified code from `nav.js`.
 
@@ -122,9 +122,7 @@ Todos pasan primero por una **capa de seguridad local**: si el frente está tapa
 |------|-----|------|-------------------|
 | Pure Pursuit | `pure_pursuit` | Steer toward the waypoint; slow if the front is tight | `forwardClear` (any enabled) + shared safety |
 | Bug2 | `bug2` | Follow the M-line; trace the boundary when blocked | `blocked`, `forwardClear`, `steerHint`, `minObstacleDist` |
-| DWA | `dwa` | Sample short `(v, ω)` candidates and pick a safe command | **polar** (LIDAR best; US/IR fuse in) |
 | VFH | `vfh` | Steer through the clearest polar-histogram sector | **polar** (LIDAR); IR×3 fallback |
-| Potential Field | `potential_field` | Attract to the waypoint, repel from nearby hits | **polar** + IR×3 |
 | Custom | `custom` | Your `loop()` in the JS pad — [CUSTOM_JS.md](CUSTOM_JS.md) | Whatever you read: `lidar` / `ultrasonic` / `ir` / `floorIr` |
 
 Click **?** next to each algorithm (GUI English) for explanation, sensors used, and simplified code.
@@ -135,9 +133,7 @@ Pulsa **?** junto a cada algoritmo (popup en inglés) para ver explicación, sen
 |------|-----|------|----------------------|
 | Pure Pursuit | `pure_pursuit` | Apunta al waypoint; frena si el frente está corto | `forwardClear` + seguridad compartida |
 | Bug2 | `bug2` | Línea-M; contorno si hay bloqueo | `blocked`, `forwardClear`, `steerHint` |
-| DWA | `dwa` | Prueba pares `(v, ω)` y elige el mejor | **polar** (LIDAR; US/IR se fusionan) |
 | VFH | `vfh` | Histograma polar → sector más libre | **polar**; IR×3 de respaldo |
-| Campo potencial | `potential_field` | Atrae al goal, repele obstáculos | **polar** + IR×3 |
 | Custom | `custom` | Tu `loop()` — [CUSTOM_JS.md](CUSTOM_JS.md) | Los que leas en el pad |
 
 If Custom has no saved loop, `nav.js` uses `defaultCustomCommand` (`v = 0.60 · MAX_SPEED`, `omega` from heading error).

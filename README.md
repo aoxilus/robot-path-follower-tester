@@ -20,7 +20,7 @@ Coloca waypoints, elige un algoritmo y mira un **robot de 4 ruedas** navegar en 
 |---------|----------|
 | Path-following ideas are slow to validate on real hardware | Instant 3D sandbox in the browser |
 | ROS/Gazebo setup takes forever for a quick test | `npm install && npm run dev` — done |
-| You want to compare Pure Pursuit, Bug2, DWA, VFH, and Potential Field | Switch algorithms in one click |
+| You want to compare Pure Pursuit, Bug2, and VFH | Switch algorithms in one click |
 | Teaching or prototyping a 4-wheel differential-drive bot | Visual telemetry + collision log |
 
 **Future / Futuro:** plug in your own algorithms in **Python** or **JavaScript**.
@@ -45,7 +45,7 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 **Layout:** left panel = settings · **center** = 3D robot scene · **right** = drag & drop objects + telemetry log.
 
 1. **Click the center scene** → set waypoints (🟢 start · 🟡 middle · 🔴 end)
-2. **Pick an algorithm** → Pure Pursuit · Bug2 · DWA · VFH · Potential Field · Custom
+2. **Pick an algorithm** → Pure Pursuit · Bug2 · VFH · Custom
 3. **Start Exploration** → watch the robot follow the path and dodge obstacles
 4. **Drag objects** from the right panel onto the scene → stack boxes/spheres/cylinders; the robot pushes them on contact
 5. **✏️ Draw shape** on the right panel → outline a polygon on the floor, then **Extrude** ↑ (mountain) or ↓ (depression)
@@ -66,9 +66,7 @@ The default hit-test uses the rover’s complete **2.8×3 m body-and-wheel footp
 |-----------|--------------|
 | **Pure Pursuit** (`pure_pursuit`) | Tracks the waypoint path using a lookahead target |
 | **Bug2** (`bug2`) | Follows the M-line to the goal and traces obstacles when blocked |
-| **DWA** (`dwa`) | Scores short motion candidates and picks a safe forward command |
 | **VFH** (`vfh`) | Builds a local steering choice from obstacle sectors |
-| **Potential Field** (`potential_field`) | Combines attraction to the target with repulsion from obstacles |
 | **Custom** (`custom`) | JS pad: copy the robot API, paste a `loop()` that sets `v` and `omega` |
 
 ---

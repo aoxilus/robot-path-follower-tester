@@ -60,16 +60,8 @@
               <button type="button" class="algo-help-btn" data-algo-help="bug2" title="?" aria-label="Help">?</button>
             </div>
             <div class="algo-row">
-              <button type="button" class="toggle-btn" data-algo="dwa" data-i18n="algoDwa">DWA</button>
-              <button type="button" class="algo-help-btn" data-algo-help="dwa" title="?" aria-label="Help">?</button>
-            </div>
-            <div class="algo-row">
               <button type="button" class="toggle-btn" data-algo="vfh" data-i18n="algoVfh">VFH</button>
               <button type="button" class="algo-help-btn" data-algo-help="vfh" title="?" aria-label="Help">?</button>
-            </div>
-            <div class="algo-row">
-              <button type="button" class="toggle-btn" data-algo="potential_field" data-i18n="algoPotential">Potential Field</button>
-              <button type="button" class="algo-help-btn" data-algo-help="potential_field" title="?" aria-label="Help">?</button>
             </div>
             <div class="algo-row">
               <button type="button" class="toggle-btn" data-algo="custom" data-i18n="algoCustom">Custom (JS hook)</button>
@@ -129,21 +121,21 @@
           <h2 data-i18n="sectionDrag">Drag &amp; Drop</h2>
           <p class="field-label" data-i18n="dragPaletteLabel">Drag onto the scene:</p>
           <div class="drag-palette" id="dragPalette">
-            <div class="drag-item" draggable="true" data-type="sphere">
+            <div class="drag-item" data-type="sphere">
               <span class="drag-icon sphere-icon" aria-hidden="true"></span>
               <span>
                 <span class="drag-label" data-i18n="objSphere">Sphere</span>
                 <span class="drag-sub" data-i18n="dragSphereHint">Rolls when pushed</span>
               </span>
             </div>
-            <div class="drag-item" draggable="true" data-type="box">
+            <div class="drag-item" data-type="box">
               <span class="drag-icon box-icon" aria-hidden="true"></span>
               <span>
                 <span class="drag-label" data-i18n="objBox">Cube</span>
                 <span class="drag-sub" data-i18n="dragBoxHint">Stackable block</span>
               </span>
             </div>
-            <div class="drag-item" draggable="true" data-type="cylinder">
+            <div class="drag-item" data-type="cylinder">
               <span class="drag-icon cylinder-icon" aria-hidden="true"></span>
               <span>
                 <span class="drag-label" data-i18n="objCylinder">Cylinder</span>
@@ -190,7 +182,7 @@
             <span data-i18n="moveObjectsLabel">Move objects (hold+drag)</span>
           </label>
           <p class="hint" data-i18n="moveObjectsHint">When on: camera locked (no zoom/orbit). Drag cones and props only.</p>
-          <p class="hint" data-i18n="objectHint">Drag from palette to place. Click+drag props/cones to move. Scale/mass apply to selection.</p>
+          <p class="hint" data-i18n="objectHint">Drag from palette — a 3D preview follows the cursor; release on the scene to place.</p>
         </section>
 
         <section class="panel-section panel-section-grow">

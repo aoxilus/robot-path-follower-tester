@@ -34,10 +34,8 @@ export function createNavSystem(ctx) {
     const ROSE_AREA_RADIUS = 1.50;
     const ROSE_MIN_CIRCUIT = 4.00;
     const LIDAR_UPDATE_INTERVAL = 0.18;
-    const LIDAR_CLEARANCE_RADIUS = Math.max(
-        ROBOT_COLLISION.halfWidth,
-        ROBOT_COLLISION.halfLength,
-    );
+    // Sense a corridor about as wide as the rover body — not the full length.
+    const LIDAR_CLEARANCE_RADIUS = ROBOT_COLLISION.halfWidth;
     const BUMPER_PROBE = 0.24;
 
     class SensorSuite {
@@ -537,25 +535,21 @@ export function createNavSystem(ctx) {
         return 1;
     }
 
-    // Go around the obstacle on one committed side. Prefer driving into the
-    // freest open heading — reverse only when already overlapping.
-    function dontbeWebon(reading, navState) {
+    // Go around on the freest heading biased toward the goal.
+    function dontbeWebon(reading, navState, headingErr) {
         const side = navState.roseSide < 0 ? -1 : 1;
         const yaw = robot.rotation.y;
-        const free = chooseFreestHeading(0, reading);
+        const free = chooseFreestHeading(headingErr || 0, reading);
         const turn = free.found ? free.angle : side * 0.90;
         const world = yaw + turn;
-        const probe = 0.70;
+        const probe = 0.80;
         const fx = robot.position.x + Math.sin(world) * probe;
         const fz = robot.position.z + Math.cos(world) * probe;
         const frontHit = sensorConfig.hitTest ? queryPose(fx, fz, world) : { clear: 1 };
         const nowHit = sensorConfig.hitTest
             ? queryPose(robot.position.x, robot.position.z, yaw)
             : { clear: 1 };
-        const frontClear = Math.min(
-            reading.forwardClear,
-            polarClearance(reading, turn),
-        );
+        const laneClear = polarClearance(reading, turn);
 
         if (nowHit.clear === 0) {
             return {
@@ -566,35 +560,34 @@ export function createNavSystem(ctx) {
             };
         }
 
-        // Motion was blocked last frame: turn toward freest heading, keep creeping.
         if (navState.forceRose) {
             return {
-                v: frontHit.clear ? MAX_SPEED * 0.45 : -MAX_SPEED * 0.25,
-                omega: Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, turn * 1.80)),
+                v: frontHit.clear ? MAX_SPEED * 0.50 : -MAX_SPEED * 0.22,
+                omega: Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, turn * 1.90)),
                 skip: 0,
                 webon: 1,
             };
         }
 
-        if (frontHit.clear === 0 || frontClear < 0.85) {
+        if (frontHit.clear === 0 || laneClear < 0.90) {
             return {
-                v: MAX_SPEED * 0.35,
-                omega: side * MAX_OMEGA * 0.90,
+                v: MAX_SPEED * 0.40,
+                omega: side * MAX_OMEGA * 0.95,
                 skip: 0,
                 webon: 1,
             };
         }
 
         return {
-            v: MAX_SPEED * 0.80,
-            omega: Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, turn * 1.20 + side * 0.25)),
+            v: MAX_SPEED * 0.85,
+            omega: Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, turn * 1.35)),
             skip: 0,
             webon: 1,
         };
     }
 
     function safetyCommand(headingErr, reading, navState) {
-        const step = 0.90;
+        const step = 1.20;
         const goalYaw = robot.rotation.y + headingErr;
         const gx = robot.position.x + Math.sin(goalYaw) * step;
         const gz = robot.position.z + Math.cos(goalYaw) * step;
@@ -605,21 +598,20 @@ export function createNavSystem(ctx) {
             ? queryPose(robot.position.x, robot.position.z, robot.rotation.y)
             : { clear: 1 };
         const goalClear = polarClearance(reading, headingErr);
-        const goalOpen = goalHit.clear === 1
-            && goalClear > 1.60
-            && nowHit.clear === 1;
-
-        // Sensors say the goal lane is open — resume normal path tracking.
-        if (goalOpen && !reading.blocked) {
+        // Goal lane open → resume tracking even if the current nose sees a side hit.
+        const goalOpen = goalHit.clear === 1 && goalClear > 1.40 && nowHit.clear === 1;
+        if (goalOpen) {
             navState.roseMode = 0;
             navState.forceRose = 0;
             return null;
         }
 
-        const choke = reading.blocked
-            || nowHit.clear === 0
+        const choke = nowHit.clear === 0
             || goalHit.clear === 0
-            || (Number.isFinite(reading.forwardClear) && reading.forwardClear < 0.85);
+            || (reading.blocked && goalClear < 1.20)
+            || (Number.isFinite(reading.forwardClear)
+                && reading.forwardClear < 0.70
+                && goalClear < 1.20);
 
         if (!choke && !navState.forceRose) {
             navState.roseMode = 0;
@@ -662,7 +654,7 @@ export function createNavSystem(ctx) {
             return { v: 0, omega: 0, skip: 1, webon: 0 };
         }
 
-        return dontbeWebon(reading, navState);
+        return dontbeWebon(reading, navState, headingErr);
     }
 
     function computeNavCommand(activeAlgo, target, reading, navState, missionStart) {
@@ -689,78 +681,42 @@ export function createNavSystem(ctx) {
         }
 
         if (activeAlgo === 'pure_pursuit') {
-            const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, headingErr * 2));
-            const v = clear < 3 ? MAX_SPEED * Math.max(0.25, clear / 3) : MAX_SPEED;
+            // Nudge away from the blocked side when the nose is tight.
+            let err = headingErr;
+            if (clear < 2.2 && reading.steerHint) {
+                err = headingErr + reading.steerHint * 0.45;
+            }
+            const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, err * 2.1));
+            const v = clear < 3 ? MAX_SPEED * Math.max(0.30, clear / 3) : MAX_SPEED;
             return { v, omega };
         }
 
         if (activeAlgo === 'bug2') {
             if (navState.mode === 'BUG_FOLLOW') {
                 const side = navState.bugSide;
-                let omega = side * MAX_OMEGA * 0.55;
-                let v = MAX_SPEED * 0.55;
-                if (reading.minObstacleDist < 0.9) omega = side * MAX_OMEGA * 0.9;
-                const closerOnMline = mLineDist(target, missionStart) < 0.4
-                    && distToGoal(target) < navState.bugStartDist - 0.3;
-                const frontOpen = reading.forwardClear > 1.8 && !blocked;
+                let omega = side * MAX_OMEGA * 0.60;
+                let v = MAX_SPEED * 0.60;
+                if (reading.minObstacleDist < 0.9) omega = side * MAX_OMEGA * 0.95;
+                const closerOnMline = mLineDist(target, missionStart) < 0.45
+                    && distToGoal(target) < navState.bugStartDist - 0.25;
+                const frontOpen = reading.forwardClear > 1.60 && !blocked;
                 if (closerOnMline && frontOpen) navState.mode = 'TRACK';
                 return { v, omega };
             }
-            if (blocked && clear < 1.5) {
+            if (blocked && clear < 1.6) {
                 navState.mode = 'BUG_FOLLOW';
-                navState.bugSide = reading.steerHint || 1;
+                navState.bugSide = reading.steerHint || pickRoseSide(headingErr, reading);
                 navState.bugStartDist = distToGoal(target);
-                return { v: MAX_SPEED * 0.35, omega: navState.bugSide * MAX_OMEGA * 0.7 };
+                return { v: MAX_SPEED * 0.40, omega: navState.bugSide * MAX_OMEGA * 0.75 };
             }
             navState.mode = 'TRACK';
             const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, headingErr * 2.2));
-            const v = clear < 2.5 ? MAX_SPEED * 0.5 : MAX_SPEED;
+            const v = clear < 2.5 ? MAX_SPEED * 0.55 : MAX_SPEED;
             return { v, omega };
         }
 
-        if (activeAlgo === 'dwa') {
-            const polar = reading.polar;
-            // Sample the shared sensor histogram in the direction a candidate
-            // heading would take us — same angle convention as SensorSuite.read()
-            // (bin 0 = current forward, positive = turning right). Without this,
-            // "clearance" used to be a single global value added to every
-            // candidate's score, so it never actually influenced which (v, ω)
-            // won — DWA was blind to which direction was actually open.
-            const clearanceForTurn = (turnAngle) => {
-                if (!polar) return reading.forwardClear;
-                const bins = polar.length;
-                let idx = Math.round((turnAngle / (Math.PI * 2)) * bins) % bins;
-                if (idx < 0) idx += bins;
-                return polar[idx];
-            };
-
-            let best = { v: 0, omega: 0, score: -Infinity };
-            for (let vi = 0; vi <= 4; vi++) {
-                const v = (vi / 4) * MAX_SPEED;
-                for (let wi = -4; wi <= 4; wi++) {
-                    const omega = (wi / 4) * MAX_OMEGA;
-                    const simT = 0.6;
-                    const turnAngle = omega * simT;
-                    const futureAngle = robot.rotation.y + turnAngle;
-                    const nx = robot.position.x + Math.sin(futureAngle) * v * simT;
-                    const nz = robot.position.z + Math.cos(futureAngle) * v * simT;
-                    if (Math.abs(nx) > ctx.BUILD_LIMIT || Math.abs(nz) > ctx.BUILD_LIMIT) continue;
-
-                    const toGoal = normalizeAngle(goalAngle - futureAngle);
-                    const clearance = clearanceForTurn(turnAngle);
-                    if (v > MAX_SPEED * 0.25 && clearance < ROBOT_WIDTH * 0.7 + v * simT) continue;
-
-                    const score = v * 1.2 - Math.abs(toGoal) * 2 + Math.min(clearance, LIDAR_RANGE) * 0.4;
-                    if (score > best.score) best = { v, omega, score };
-                }
-            }
-            if (best.score === -Infinity) {
-                return { v: MAX_SPEED * 0.2, omega: (reading.steerHint || 1) * MAX_OMEGA * 0.6 };
-            }
-            return { v: best.v, omega: best.omega };
-        }
-
-        if (activeAlgo === 'vfh') {
+        // VFH is the third built-in mode; also the fallback for unknown ids.
+        if (activeAlgo === 'vfh' || (activeAlgo !== 'pure_pursuit' && activeAlgo !== 'bug2' && activeAlgo !== 'custom')) {
             const sectors = 16;
             const histogram = new Float32Array(sectors).fill(0);
             if (reading.polar) {
@@ -780,43 +736,15 @@ export function createNavSystem(ctx) {
             let bestCost = Infinity;
             for (let s = 0; s < sectors; s++) {
                 const diff = Math.min(Math.abs(s - goalSector), sectors - Math.abs(s - goalSector));
-                const cost = histogram[s] * 3 + diff * 0.4;
+                // Prefer open sectors near the goal; reject packed sectors harder.
+                const cost = histogram[s] * 4.0 + diff * 0.35;
                 if (cost < bestCost) { bestCost = cost; bestS = s; }
             }
             const chosenAngle = (bestS / sectors) * Math.PI * 2 - Math.PI;
-            const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, chosenAngle * 1.8));
-            const v = histogram[bestS] > 0.6 ? MAX_SPEED * 0.35 : MAX_SPEED * 0.85;
+            const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, chosenAngle * 2.0));
+            const v = histogram[bestS] > 0.55 ? MAX_SPEED * 0.40 : MAX_SPEED * 0.90;
             return { v, omega };
         }
-
-        // potential_field
-        let repX = 0;
-        let repZ = 0;
-        let repCount = 0;
-        if (reading.polar) {
-            for (let i = 0; i < reading.polar.length; i++) {
-                const d = reading.polar[i];
-                if (d > 2.5) continue;
-                const angle = (i / reading.polar.length) * Math.PI * 2;
-                const force = (1 / Math.max(d, 0.3)) - (1 / 2.5);
-                repX += -Math.sin(angle) * force;
-                repZ += -Math.cos(angle) * force;
-                repCount++;
-            }
-        }
-        if (reading.ir) {
-            reading.ir.forEach((d, i) => {
-                if (d > IR_RANGE * 0.9) return;
-                repX += -(i - 1) * 0.5 * (1 / Math.max(d, 0.2));
-                repZ += -(1 / Math.max(d, 0.2));
-            });
-        }
-        const fx = Math.sin(headingErr) * 2 + repX * (repCount ? 1.2 : 0.5);
-        const fz = Math.cos(headingErr) * 2 + repZ * (repCount ? 1.2 : 0.5);
-        const desired = Math.atan2(fx, fz);
-        const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, desired * 2));
-        const v = blocked ? MAX_SPEED * 0.35 : MAX_SPEED * Math.min(1, Math.hypot(fx, fz) / 3);
-        return { v, omega };
     }
 
     return {
