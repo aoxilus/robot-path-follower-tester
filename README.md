@@ -1,16 +1,17 @@
-# 🤖 Robot Path Follower Tester
+# 🤖🛞 Robot Path Follower Tester
 
-EN / ES · Vite + Three.js
+EN / ES · Vite + Three.js · 4-wheel rover
 
 ![Robot Path Follower Tester — 3-column UI with 4-wheel robot, waypoints, and physics objects](docs/screenshot.png)
 
-> **Many times we need to fast-simulate follow algorithms on a 4-wheel robot — that's why we made this app.**
+> **Many times we need to fast-simulate follow algorithms on a 4-wheel robot — that's why we made this app.** 🤖
 >
-> **Muchas veces necesitamos simular rápido algoritmos de seguimiento en un robot de 4 ruedas — por eso hicimos esta app.**
+> **Muchas veces necesitamos simular rápido algoritmos de seguimiento en un robot de 4 ruedas — por eso hicimos esta app.** 🛞
 
-Drop waypoints, pick an algorithm, watch a **4-wheel robot** navigate in 3D — no ROS install, no Gazebo wait, no hardware required. Just open the browser and test your idea in seconds.
+Drop waypoints, pick an algorithm, watch a **4-wheel rover** 🤖 navigate in 3D — no ROS install, no Gazebo wait, no hardware required. Just open the browser and test your idea in seconds.
 
-Coloca waypoints, elige un algoritmo y mira un **robot de 4 ruedas** navegar en 3D — sin instalar ROS, sin esperar Gazebo, sin hardware. Abre el navegador y prueba tu idea en segundos.
+Coloca waypoints, elige un algoritmo y mira un **rover de 4 ruedas** 🛞 navegar en 3D — sin instalar ROS, sin esperar Gazebo, sin hardware. Abre el navegador y prueba tu idea en segundos.
+
 
 ---
 
@@ -60,7 +61,7 @@ The default hit-test uses the rover’s complete **2.8×3 m body-and-wheel footp
 
 ---
 
-## 🛞 Built-in algorithms
+## 🛞🤖 Built-in algorithms
 
 | Algorithm | What it does |
 |-----------|--------------|
