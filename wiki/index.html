@@ -151,7 +151,7 @@
 </head>
 <body>
   <div class="top">
-    <div class="brand">🤖🛞 <span>Robot Path Follower Tester</span> · Wiki</div>
+    <div class="brand">🤖🚗🛸 <span>Robot Path Follower Tester</span> · Wiki</div>
     <div class="lang" role="group" aria-label="Language">
       <button type="button" id="btnEn" class="active">EN</button>
       <button type="button" id="btnEs">ES</button>
@@ -175,8 +175,8 @@
       <a data-lang="es" href="#algorithms">2. Algoritmos</a>
       <a data-lang="en" href="#how">3. How the software works</a>
       <a data-lang="es" href="#how">3. Cómo funciona el software</a>
-      <a data-lang="en" href="#sensors">4. Sensors</a>
-      <a data-lang="es" href="#sensors">4. Sensores</a>
+      <a data-lang="en" href="#sensors">4. Sensors (code + fusion)</a>
+      <a data-lang="es" href="#sensors">4. Sensores (código + fusión)</a>
       <a data-lang="en" href="#custom">5. Your own algorithms (Custom JS)</a>
       <a data-lang="es" href="#custom">5. Tus propios algoritmos (Custom JS)</a>
       <a data-lang="en" href="#edit">6. Edit the project</a>
@@ -331,35 +331,187 @@ cannon-es           →  props / conos que el rover empuja</pre>
 
     <!-- Sensors -->
     <section id="sensors">
-      <h2 data-lang="en">4. Sensors</h2>
-      <h2 data-lang="es">4. Sensores</h2>
+      <h2 data-lang="en">4. Sensors — code & how they steer together</h2>
+      <h2 data-lang="es">4. Sensores — código y cómo guían juntos</h2>
+
       <div data-lang="en">
-        <p>Toggle sensors independently. Algorithms only use what is active.</p>
+        <p>All sensing lives in <code>nav.js</code> → <code>SensorSuite.read()</code>. Each checkbox in the UI flips a flag in <code>sensorConfig</code>. A disabled sensor returns <code>null</code> and is ignored.</p>
+        <pre>sensorConfig = { lidar, ultrasonic, ir, floorIr, hitTest }
+
+each frame:
+  reading = SensorSuite.read()
+  cmd     = computeNavCommand(algo, waypoint, reading, …)
+  applyMotion(cmd.v, cmd.omega)</pre>
+
+        <h3>Shared outputs (fused reading)</h3>
         <table>
-          <thead><tr><th>Sensor</th><th>Role</th></tr></thead>
+          <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
           <tbody>
-            <tr><td><strong>LIDAR</strong></td><td>360° scan (~6 m), corridor clearance for planning</td></tr>
-            <tr><td><strong>Ultrasonic</strong></td><td>Front cone (~4 m)</td></tr>
-            <tr><td><strong>3× IR</strong></td><td>Short front contact (~0.6 m)</td></tr>
-            <tr><td><strong>Floor IR</strong></td><td>Depression edges. <em>Off</em> = drive into holes like a 4×4; <em>on</em> = avoid</td></tr>
-            <tr><td><strong>Spring bumper</strong></td><td>Contact hit-test; blocks overlap when on</td></tr>
+            <tr><td><code>polar[36]</code></td><td>360° clearance map (bin 0 = forward). LIDAR seeds it; US / IR / Floor IR write into nearby bins with <code>Math.min</code>.</td></tr>
+            <tr><td><code>forwardClear</code></td><td>Shortest distance in the front sector (±3 bins ≈ ±30°).</td></tr>
+            <tr><td><code>blocked</code></td><td><code>1</code> if any enabled sensor <em>votes</em> for avoidance.</td></tr>
+            <tr><td><code>steerHint</code></td><td><code>-1</code> / <code>+1</code> = prefer left / right when the nose is tight.</td></tr>
+            <tr><td><code>minObstacleDist</code></td><td>Nearest hit from active channels.</td></tr>
+            <tr><td><code>lidar</code> / <code>ultrasonic</code> / <code>ir</code> / <code>floorIr</code></td><td>Raw arrays for Custom JS and telemetry.</td></tr>
           </tbody>
         </table>
-        <p>Terrain stamps (✏️): ↑ mountain / ↓ hole. Raised edges hit LIDAR/US/IR; holes are for Floor IR. The rover body tilts from the four wheel ground samples.</p>
+
+        <h3>LIDAR (<code>sensorConfig.lidar</code>)</h3>
+        <ul>
+          <li><strong>Code:</strong> 36 headings × <code>castCorridor()</code> — 5 parallel rays across the rover width so thin obstacles still register.</li>
+          <li><strong>Range:</strong> <code>LIDAR_RANGE</code> (~6 m). Refresh every <code>0.18 s</code> (cached between updates).</li>
+          <li><strong>Targets:</strong> cones, props, <em>raised</em> terrain walls (not holes).</li>
+          <li><strong>Vote:</strong> front sector &lt; <code>1.80 m</code> → avoidance.</li>
+        </ul>
+        <pre>for i in 0..35:
+  angle = i/36 * 2π
+  dists[i] = castCorridor(origin, worldDir(angle), LIDAR_RANGE, halfWidth)
+out.polar = copy(dists)</pre>
+
+        <h3>Ultrasonic (<code>sensorConfig.ultrasonic</code>)</h3>
+        <ul>
+          <li><strong>Code:</strong> 3 rays at <code>−0.35, 0, +0.35</code> rad (front cone).</li>
+          <li><strong>Range:</strong> <code>ULTRASONIC_RANGE</code> (4 m). Single ray each (no corridor).</li>
+          <li><strong>Fuse:</strong> writes into polar bins near forward; if IR is off and center &lt; 1 m, sets <code>steerHint</code>.</li>
+          <li><strong>Vote:</strong> any of the 3 &lt; <code>2.00 m</code>.</li>
+        </ul>
+
+        <h3>3× IR front (<code>sensorConfig.ir</code>)</h3>
+        <ul>
+          <li><strong>Code:</strong> rays from left / center / right of the bumper, along forward, range <code>IR_RANGE</code> (0.6 m).</li>
+          <li><strong>Role:</strong> contact-zone “whiskers”. Can set <code>blocked</code> + <code>steerHint</code> early; also patches polar bins <code>−2, 0, +2</code>.</li>
+          <li><strong>Vote:</strong> any IR &lt; ~0.95 × range.</li>
+        </ul>
+
+        <h3>Floor IR (<code>sensorConfig.floorIr</code>) — default OFF</h3>
+        <ul>
+          <li><strong>Code:</strong> same 3-angle pattern, but <code>castTargets(..., floorTargets())</code> — only <em>sunken</em> terrain meshes.</li>
+          <li><strong>Off:</strong> rover can drive into holes (4×4). Physics still tilts the chassis.</li>
+          <li><strong>On:</strong> hole edges become obstacles → vote / <code>blocked</code> / polar fuse.</li>
+          <li><strong>Vote:</strong> min reading &lt; ~0.95 × <code>FLOOR_IR_RANGE</code> (3 m).</li>
+        </ul>
+
+        <h3>Spring bumper / hit-test (<code>sensorConfig.hitTest</code>)</h3>
+        <ul>
+          <li>Not a ray. Uses footprint AABB / <code>queryPose</code> in <code>main.js</code>.</li>
+          <li><strong>On:</strong> motion refuses overlap; bumper compresses; waypoint can be “touched” by the hull.</li>
+          <li><strong>Off:</strong> rover may push light props via cannon-es impulses.</li>
+        </ul>
+
+        <h3>How votes become “blocked”</h3>
+        <pre>lidarVote      = front LIDAR &lt; 1.80 m
+ultrasonicVote = any US &lt; 2.00 m
+irVote         = any IR near range limit
+floorIrVote    = hole edge detected
+
+sensorVotes = sum of votes
+blocked     = sensorVotes &gt;= 1   // ANY one sensor is enough</pre>
+        <p>No sensor needs another’s permission. More sensors = better coverage, not a committee veto.</p>
+
+        <h3>How that guides the robot</h3>
+        <ol>
+          <li><code>computeNavCommand</code> always sees the fused <code>reading</code>.</li>
+          <li><strong>Safety layer</strong> (<code>safetyCommand</code> / go-around): if the nose is choked, reverse / turn using <code>steerHint</code> and <code>polar</code>, then resume.</li>
+          <li><strong>Bug2</strong> uses <code>blocked</code> + M-line leave; <strong>Pure Pursuit</strong> slows on low <code>forwardClear</code>; <strong>VFH</strong> picks the clearest <code>polar</code> sector; <strong>Custom</strong> reads whatever you use in <code>loop()</code>.</li>
+          <li><strong>Stuck recovery</strong>: if pose barely moves ~1.5–1.8 s → reverse → look at clearest polar bin → escape.</li>
+        </ol>
+        <pre>read() → { polar, blocked, forwardClear, steerHint, … }
+     ↓
+safety / recovery? ──yes──→ override v, omega
+     ↓ no
+algo (bug2 | pure_pursuit | vfh | custom) → v, omega
+     ↓
+applyMotion → wheels + pose</pre>
       </div>
+
       <div data-lang="es">
-        <p>Activa sensores por separado. El algoritmo solo usa lo que esté encendido.</p>
+        <p>Todo el sensado vive en <code>nav.js</code> → <code>SensorSuite.read()</code>. Cada checkbox del UI cambia un flag en <code>sensorConfig</code>. Si un sensor está apagado, devuelve <code>null</code> y no cuenta.</p>
+        <pre>sensorConfig = { lidar, ultrasonic, ir, floorIr, hitTest }
+
+cada frame:
+  reading = SensorSuite.read()
+  cmd     = computeNavCommand(algo, waypoint, reading, …)
+  applyMotion(cmd.v, cmd.omega)</pre>
+
+        <h3>Salidas compartidas (lectura fusionada)</h3>
         <table>
-          <thead><tr><th>Sensor</th><th>Rol</th></tr></thead>
+          <thead><tr><th>Campo</th><th>Significado</th></tr></thead>
           <tbody>
-            <tr><td><strong>LIDAR</strong></td><td>Escaneo 360° (~6 m), holgura de corredor para planear</td></tr>
-            <tr><td><strong>Ultrasónico</strong></td><td>Cono frontal (~4 m)</td></tr>
-            <tr><td><strong>3× IR</strong></td><td>Contacto corto frontal (~0.6 m)</td></tr>
-            <tr><td><strong>IR de piso</strong></td><td>Bordes de hoyos. <em>Off</em> = entra como 4×4; <em>on</em> = evita</td></tr>
-            <tr><td><strong>Parachoques</strong></td><td>Hit-test de contacto; bloquea solapes si está on</td></tr>
+            <tr><td><code>polar[36]</code></td><td>Mapa 360° de holgura (bin 0 = frente). LIDAR lo siembra; US / IR / Floor IR escriben con <code>Math.min</code>.</td></tr>
+            <tr><td><code>forwardClear</code></td><td>Distancia mínima del sector frontal (±3 bins ≈ ±30°).</td></tr>
+            <tr><td><code>blocked</code></td><td><code>1</code> si algún sensor activo <em>vota</em> evitar.</td></tr>
+            <tr><td><code>steerHint</code></td><td><code>-1</code> / <code>+1</code> = preferir izquierda / derecha si el hocico está apretado.</td></tr>
+            <tr><td><code>minObstacleDist</code></td><td>Hit más cercano de los canales activos.</td></tr>
+            <tr><td><code>lidar</code> / <code>ultrasonic</code> / <code>ir</code> / <code>floorIr</code></td><td>Arrays crudos para Custom JS y telemetría.</td></tr>
           </tbody>
         </table>
-        <p>Sellos de terreno (✏️): ↑ colina / ↓ hoyo. Bordes elevados entran a LIDAR/US/IR; los hoyos son para IR de piso. El chasis se inclina según las 4 ruedas.</p>
+
+        <h3>LIDAR (<code>sensorConfig.lidar</code>)</h3>
+        <ul>
+          <li><strong>Código:</strong> 36 rumbos × <code>castCorridor()</code> — 5 rayos paralelos a lo ancho del rover.</li>
+          <li><strong>Alcance:</strong> <code>LIDAR_RANGE</code> (~6 m). Se refresca cada <code>0.18 s</code> (cache).</li>
+          <li><strong>Blancos:</strong> conos, props, paredes de terreno <em>elevado</em> (no hoyos).</li>
+          <li><strong>Voto:</strong> sector frontal &lt; <code>1.80 m</code> → evitar.</li>
+        </ul>
+        <pre>for i in 0..35:
+  angle = i/36 * 2π
+  dists[i] = castCorridor(origin, worldDir(angle), LIDAR_RANGE, halfWidth)
+out.polar = copy(dists)</pre>
+
+        <h3>Ultrasónico (<code>sensorConfig.ultrasonic</code>)</h3>
+        <ul>
+          <li><strong>Código:</strong> 3 rayos a <code>−0.35, 0, +0.35</code> rad (cono frontal).</li>
+          <li><strong>Alcance:</strong> <code>ULTRASONIC_RANGE</code> (4 m). Un rayo por ángulo.</li>
+          <li><strong>Fusión:</strong> escribe en bins polares del frente; si IR está off y el centro &lt; 1 m, pone <code>steerHint</code>.</li>
+          <li><strong>Voto:</strong> cualquiera de los 3 &lt; <code>2.00 m</code>.</li>
+        </ul>
+
+        <h3>3× IR frontal (<code>sensorConfig.ir</code>)</h3>
+        <ul>
+          <li><strong>Código:</strong> rayos desde izquierda / centro / derecha del parachoques, hacia adelante, <code>IR_RANGE</code> (0.6 m).</li>
+          <li><strong>Rol:</strong> “bigotes” de contacto. Pueden poner <code>blocked</code> + <code>steerHint</code>; también parchan polar <code>−2, 0, +2</code>.</li>
+          <li><strong>Voto:</strong> cualquier IR &lt; ~0.95 × alcance.</li>
+        </ul>
+
+        <h3>IR de piso (<code>sensorConfig.floorIr</code>) — default OFF</h3>
+        <ul>
+          <li><strong>Código:</strong> mismos 3 ángulos, pero solo contra mallas de terreno <em>hundido</em>.</li>
+          <li><strong>Off:</strong> el rover puede meterse al hoyo (4×4). La física igual inclina el chasis.</li>
+          <li><strong>On:</strong> el borde del hoyo es obstáculo → voto / <code>blocked</code> / polar.</li>
+          <li><strong>Voto:</strong> mínimo &lt; ~0.95 × <code>FLOOR_IR_RANGE</code> (3 m).</li>
+        </ul>
+
+        <h3>Parachoques / hit-test (<code>sensorConfig.hitTest</code>)</h3>
+        <ul>
+          <li>No es un rayo. Usa la huella AABB / <code>queryPose</code> en <code>main.js</code>.</li>
+          <li><strong>On:</strong> no atraviesa; el bumper se comprime; el hull puede “tocar” waypoints.</li>
+          <li><strong>Off:</strong> puede empujar props ligeros con cannon-es.</li>
+        </ul>
+
+        <h3>Cómo los votos ponen <code>blocked</code></h3>
+        <pre>lidarVote      = LIDAR frontal &lt; 1.80 m
+ultrasonicVote = algún US &lt; 2.00 m
+irVote         = algún IR cerca del límite
+floorIrVote    = borde de hoyo detectado
+
+sensorVotes = suma
+blocked     = sensorVotes &gt;= 1   // BASTA UN sensor</pre>
+        <p>Ningún sensor necesita permiso de otro. Más sensores = mejor cobertura, no un veto por comité.</p>
+
+        <h3>Cómo eso guía al robot</h3>
+        <ol>
+          <li><code>computeNavCommand</code> siempre recibe el <code>reading</code> fusionado.</li>
+          <li><strong>Capa de seguridad</strong> (<code>safetyCommand</code> / rodeo): si el hocico está tapado, retrocede / gira con <code>steerHint</code> y <code>polar</code>, luego retoma.</li>
+          <li><strong>Bug2</strong> usa <code>blocked</code> + salida de M-line; <strong>Pure Pursuit</strong> frena con <code>forwardClear</code> bajo; <strong>VFH</strong> elige el sector más libre de <code>polar</code>; <strong>Custom</strong> lee lo que uses en <code>loop()</code>.</li>
+          <li><strong>Recuperación:</strong> si casi no se mueve ~1.5–1.8 s → atrás → mira el bin polar más libre → escapa.</li>
+        </ol>
+        <pre>read() → { polar, blocked, forwardClear, steerHint, … }
+     ↓
+¿seguridad / recovery? ──sí──→ override v, omega
+     ↓ no
+algo (bug2 | pure_pursuit | vfh | custom) → v, omega
+     ↓
+applyMotion → ruedas + pose</pre>
       </div>
     </section>
 
@@ -457,14 +609,14 @@ draw(robotX, robotZ)</pre>
       <details>
         <summary data-lang="en">Does the rover tilt on uneven terrain?</summary>
         <summary data-lang="es">¿El rover se inclina en terreno irregular?</summary>
-        <p data-lang="en">Yes. Height is sampled under each of the four wheels; pitch/roll follow the averages (with suspension travel on the wheel meshes).</p>
-        <p data-lang="es">Sí. Se toma altura bajo cada una de las cuatro ruedas; pitch/roll siguen los promedios (con recorrido de suspensión visual).</p>
+        <p data-lang="en">Yes. The chassis follows the ground under each of the four wheels (pitch / roll).</p>
+        <p data-lang="es">Sí. El chasis sigue el suelo bajo cada una de las cuatro ruedas (pitch / roll).</p>
       </details>
       <details>
-        <summary data-lang="en">Where did the side Log go?</summary>
-        <summary data-lang="es">¿Dónde quedó el Log del costado?</summary>
-        <p data-lang="en">It lives inside <strong>Error Report</strong> (state + recent log + JSON/CSV export). Cleaner right panel.</p>
-        <p data-lang="es">Está dentro de <strong>Reporte de error</strong> (estado + log reciente + export JSON/CSV). Panel derecho más limpio.</p>
+        <summary data-lang="en">How do I see the log or debug a stuck run?</summary>
+        <summary data-lang="es">¿Cómo veo el log o depurar una corrida atascada?</summary>
+        <p data-lang="en">Open <strong>Error Report</strong> on the left panel. It includes robot state, the recent log, and Copy / JSON / CSV.</p>
+        <p data-lang="es">Abre <strong>Reporte de error</strong> en el panel izquierdo. Incluye estado del robot, el log reciente y Copiar / JSON / CSV.</p>
       </details>
       <details>
         <summary data-lang="en">How do I save / load a map?</summary>
@@ -473,16 +625,10 @@ draw(robotX, robotZ)</pre>
         <p data-lang="es"><strong>Guardar mapa</strong> guarda una entrada con fecha. <strong>Cargar mapa</strong> abre un selector con timestamps y conteos (waypoints / props / terreno).</p>
       </details>
       <details>
-        <summary data-lang="en">Is this a full dynamics simulator?</summary>
-        <summary data-lang="es">¿Es un simulador de dinámica completo?</summary>
-        <p data-lang="en">No. The rover is kinematic (<code>applyMotion</code>). <code>cannon-es</code> drives props/cones. Great for path/sensor ideas — not validated vehicle dynamics.</p>
-        <p data-lang="es">No. El rover es cinemático (<code>applyMotion</code>). <code>cannon-es</code> mueve props/conos. Ideal para ideas de ruta/sensores — no es dinámica vehicular validada.</p>
-      </details>
-      <details>
-        <summary data-lang="en">Can I use Python algorithms?</summary>
-        <summary data-lang="es">¿Puedo usar algoritmos en Python?</summary>
-        <p data-lang="en">Not in-browser today. Use <strong>Custom JS</strong>, or fork and bridge an external process. Python support is on the roadmap idea list.</p>
-        <p data-lang="es">Hoy no en el navegador. Usa <strong>Custom JS</strong>, o haz fork y conecta un proceso externo. Python está en la lista de ideas.</p>
+        <summary data-lang="en">How do I try my own algorithm?</summary>
+        <summary data-lang="es">¿Cómo pruebo mi propio algoritmo?</summary>
+        <p data-lang="en">Select <strong>Custom (JS)</strong>, copy the setup API, write a <code>loop()</code> that sets <code>v</code> and <code>omega</code>, then Check → Save. See <a href="#custom">§5</a>.</p>
+        <p data-lang="es">Elige <strong>Custom (JS)</strong>, copia el API de setup, escribe un <code>loop()</code> que asigne <code>v</code> y <code>omega</code>, luego Checar → Guardar. Ver <a href="#custom">§5</a>.</p>
       </details>
       <details>
         <summary data-lang="en">License?</summary>

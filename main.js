@@ -1,13 +1,13 @@
 // 🥑 Robot Path Follower Tester
-// 🛞 Fast browser sandbox to simulate follow algorithms on a 4-wheel robot.
-// 🌍 EN/ES UI · 🤖 Three.js scene · 📡 sensors · 🧠 Bug0 / avoidance / wander
+// 🤖🚗🛸 Fast browser sandbox to simulate follow algorithms on a 4-wheel robot.
+// 🌍 EN/ES UI · Three.js scene · sensors · Bug2 / Pure Pursuit / VFH / Custom
 
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08242026 2350';
+const BUILD_STAMP = '08242026 2356';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
@@ -537,7 +537,7 @@ function setTerrainSize(size) {
     updateTerrainUi();
 }
 
-// 🛞 4-wheel robot — yellow body + 4 cylindrical wheels (differential-drive style)
+// 🤖🚗🛸 4-wheel robot — yellow body + 4 cylindrical wheels (differential-drive style)
 const robot = new THREE.Group();
 robot.rotation.order = 'YXZ'; // yaw (y) · pitch (x) · roll (z) — terrain tilt
 const carHeight = 1;
@@ -3721,10 +3721,10 @@ function applyMotion(v, omega, dt) {
     const actualOmega = dt > 0 ? (robot.rotation.y - yaw0) / dt : 0;
     const leftLinear = actualLinear + actualOmega * ROBOT_COLLISION.halfWidth;
     const rightLinear = actualLinear - actualOmega * ROBOT_COLLISION.halfWidth;
-    wheels[0].rotation.x -= leftLinear * dt / WHEEL_RADIUS;
-    wheels[2].rotation.x -= leftLinear * dt / WHEEL_RADIUS;
-    wheels[1].rotation.x -= rightLinear * dt / WHEEL_RADIUS;
-    wheels[3].rotation.x -= rightLinear * dt / WHEEL_RADIUS;
+    wheels[0].rotation.x += leftLinear * dt / WHEEL_RADIUS;
+    wheels[2].rotation.x += leftLinear * dt / WHEEL_RADIUS;
+    wheels[1].rotation.x += rightLinear * dt / WHEEL_RADIUS;
+    wheels[3].rotation.x += rightLinear * dt / WHEEL_RADIUS;
 
     if (blocked && sensorConfig.hitTest && v > 0) triggerSpringBumper();
     if (requestedDistance > 0.01 && actualDistance < requestedDistance * 0.10) return 1;
