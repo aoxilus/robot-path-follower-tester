@@ -155,16 +155,19 @@ Cada ~2 s el log guarda pose, waypoint, comando, sensores y objetos cercanos.
 
 ## Physics / Física
 
-- **Rover** — kinematic: `applyMotion` integrates `v` / `omega`, refuses obstacle overlap, and follows drawn terrain height.
-- **Full hit-test** — world-space footprint includes wheels; it never shrinks according to camera pixels.
-- **Swept motion** — each frame is divided into ≤ 0.08 m / ≤ 0.05 rad checks to prevent tunneling through thin objects.
-- **Dropped props** — dynamic `cannon-es` bodies the rover can push; terrain relief uses static triangle meshes.
-- Teaching sandbox, not a validated differential-drive plant model.
+The rover is kinematic (`applyMotion`). Props and stage cones are **dynamic `cannon-es` bodies**. Gravity (`−15 m/s²`), friction, and sleep own stacking and rolling. A hit is a **soft impulse** scaled by rover speed — never a pose teleport or `velocity.set`. CSS ease-in-out is the wrong model; the solver already accelerates and damps.
 
-- **Rover** — cinemático: `applyMotion` integra `v` / `omega`, evita solapes y trata el relieve extruido como choke.
-- **Hit-test completo** — la huella incluye las ruedas y nunca cambia por píxeles de cámara.
-- **Movimiento barrido** — cada frame se divide en chequeos ≤ 0.08 m / ≤ 0.05 rad para no atravesar objetos.
-- **Objetos soltados** — cuerpos dinámicos `cannon-es`; el relieve usa mallas triangulares estáticas.
+Do **not** knock while the rover is parked: a fat AABB used to shove every nearby stack, so a ball left its support, would not fall (velocity overwritten every frame), and would not roll (`angularDamping ≈ 0.88`).
+
+**Why many AI retries failed:** they treated *symptoms* (more knock, disable sleep, skip cannon contacts, freeze motion with 2D polygons). Each “fix” fought the integrator. The traps are listed in [notes/Physics.md](../notes/Physics.md).
+
+El rover es cinemático. Props y conos son cuerpos **dinámicos `cannon-es`**. Gravedad, fricción y sleep apilan y ruedan. El golpe es un **impulso suave**; no hay teletransporte ni `velocity.set`. No uses ease-in-out de CSS: el solver ya acelera y frena.
+
+Con el rover parado **no** se golpea: un AABB gordo empujaba torres cercanas, la esfera salía del soporte, no caía (se pisaba `vy`) y no rodaba (`angularDamping` alto).
+
+**Por qué fallaron varios intentos de IA:** corregían síntomas (más knock, sleep off, ignorar contactos, congelar con polígonos 2D) y eso peleaba con el integrador. Detalle: [notes/Physics.md](../notes/Physics.md).
+
+- Teaching sandbox, not a validated differential-drive plant model.
 - Sandbox didáctico, no un modelo validado de planta diferencial.
 
 ---

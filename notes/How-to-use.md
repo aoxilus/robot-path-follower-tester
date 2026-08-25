@@ -74,6 +74,7 @@ Every ~2 s the log records pose, waypoint, command, sensors, and nearby objects.
 
 ## Physics note
 
-- **Rover** — kinematic (`applyMotion`). Hit test on: no overlap. Hit test off: pushes light props; cones / heavy props still stop it. It follows drawn terrain height.
-- **Dropped props** — dynamic `cannon-es` bodies the rover can push; terrain relief uses static triangle meshes.
+- **Rover** — kinematic (`applyMotion`). Hull collides; **Hit Objects** adds a speed-scaled cannon-es impulse (no teleport).
+- **Stacks / spheres** — gravity + friction + sleep. Parked rover does not knock. Balls roll; they are not spin-locked.
+- **Dropped props / cones** — dynamic `cannon-es` bodies. See [Physics.md](Physics.md) for why fake knocks look robotic.
 - Teaching sandbox, not a validated differential-drive plant model.

@@ -6,6 +6,7 @@ Public project documentation also lives in **[docs/HOW_IT_WORKS.md](../docs/HOW_
 
 | Page | What it covers |
 |------|----------------|
+| [Physics](Physics.md) | cannon-es traps: gravity, rolling, why knocks looked robotic |
 | [How to use](How-to-use.md) | Quick start, UI, mission loop, sensors, algorithms |
 | [Architecture](Architecture.md) | File map, constants, data flow |
 | [API — main.js](API-main.md) | Scene, physics, input, mission, Custom pad, telemetry |

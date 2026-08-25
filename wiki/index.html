@@ -299,6 +299,7 @@ computeNavCommand() →  { v, omega }
 applyMotion()       →  yaw + XZ pose (kinematic)
 applyRoverTerrain() →  height + pitch/roll from 4 wheels
 cannon-es           →  props / cones the rover can push</pre>
+        <p>Hits must look like physics, not keyframes: <code>applyImpulse</code> then <code>world.step</code>. Do not <code>velocity.set</code> or teleport. Detail: repo <code>notes/Physics.md</code>.</p>
         <p><strong>Error Report</strong> packages robot state, map snapshot, attempts, and the recent log so you can paste it into chat.</p>
       </div>
       <div data-lang="es">
@@ -325,6 +326,7 @@ computeNavCommand() →  { v, omega }
 applyMotion()       →  yaw + pose XZ (cinemático)
 applyRoverTerrain() →  altura + pitch/roll de 4 ruedas
 cannon-es           →  props / conos que el rover empuja</pre>
+        <p>El golpe es física, no animación: <code>applyImpulse</code> y luego <code>world.step</code>. Nada de <code>velocity.set</code> ni teletransporte. Detalle: <code>notes/Physics.md</code>.</p>
         <p><strong>Reporte de error</strong> junta estado del robot, mapa, intentos y el log reciente para pegarlo en el chat.</p>
       </div>
     </section>
@@ -394,8 +396,8 @@ out.polar = copy(dists)</pre>
         <h3>Spring bumper / hit-test (<code>sensorConfig.hitTest</code>)</h3>
         <ul>
           <li>Not a ray. Uses footprint AABB / <code>queryPose</code> in <code>main.js</code>.</li>
-          <li><strong>On:</strong> motion refuses overlap; bumper compresses; waypoint can be “touched” by the hull.</li>
-          <li><strong>Off:</strong> rover may push light props via cannon-es impulses.</li>
+          <li><strong>On:</strong> motion refuses overlap with immovables; bumper compresses; waypoint can be “touched” by the hull.</li>
+          <li><strong>Hit Objects:</strong> moving rover applies a cannon-es impulse (gravity/roll continue). Parked rover does not knock stacks.</li>
         </ul>
 
         <h3>How votes become “blocked”</h3>
@@ -484,8 +486,8 @@ out.polar = copy(dists)</pre>
         <h3>Parachoques / hit-test (<code>sensorConfig.hitTest</code>)</h3>
         <ul>
           <li>No es un rayo. Usa la huella AABB / <code>queryPose</code> en <code>main.js</code>.</li>
-          <li><strong>On:</strong> no atraviesa; el bumper se comprime; el hull puede “tocar” waypoints.</li>
-          <li><strong>Off:</strong> puede empujar props ligeros con cannon-es.</li>
+          <li><strong>On:</strong> no atraviesa inmóviles; el bumper se comprime; el hull puede “tocar” waypoints.</li>
+          <li><strong>Hit Objects:</strong> rover en movimiento aplica impulso cannon-es (gravedad/rodadura siguen). Parado no tumba torres.</li>
         </ul>
 
         <h3>Cómo los votos ponen <code>blocked</code></h3>

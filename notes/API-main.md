@@ -36,7 +36,7 @@ Script module (not class-based). Owns scene, input, mission, Custom pad, telemet
 | `clearPhysicsProps()` | Remove all dynamic props |
 | `syncRobotPhysicsBody()` | Copy rover pose → kinematic CANNON body |
 | `stepPhysics(dt)` | World step + sync meshes from bodies |
-| `applyRobotPushImpulse(dt)` | Soft push when rover overlaps props |
+| `applyRobotPushImpulse(dt)` | If rover speed ≥ 0.35 m/s, applyImpulse on overlapping light bodies (then `world.step`) |
 
 ---
 
