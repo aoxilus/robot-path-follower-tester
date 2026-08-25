@@ -43,13 +43,14 @@ Open **http://localhost:5173/** · toggle **English / Español** in the UI.
 
 ## 🎮 How to use
 
-**Layout:** left panel = settings · **center** = 3D robot scene · **right** = drag & drop objects + telemetry log.
+**Layout:** left panel = settings · **center** = 3D robot scene · **right** = drag & drop objects + terrain.
 
 1. **Click the center scene** → set waypoints (🟢 start · 🟡 middle · 🔴 end)
-2. **Pick an algorithm** → Pure Pursuit · Bug2 · VFH · Custom
-3. **Start Exploration** → watch the robot follow the path and dodge obstacles
+2. **Pick an algorithm** → Bug2 (default) · Pure Pursuit · VFH · Custom
+3. **Start Mission** → watch the robot follow the path and dodge obstacles
 4. **Drag objects** from the right panel onto the scene → stack boxes/spheres/cylinders; the robot pushes them on contact
 5. **✏️ Draw shape** on the right panel → outline a polygon on the floor, then **Extrude** ↑ (mountain) or ↓ (depression)
+6. **Error Report** → robot state + recent log (Copy / JSON / CSV) for debugging
 
 Extruded terrain is a **choke obstacle**: LIDAR/ultrasonic/IR detect its perimeter, hit-test blocks overlap, and path algorithms route around it. At `0 m`, the flat preview does not block.
 
@@ -59,16 +60,20 @@ The default hit-test uses the rover’s complete **2.8×3 m body-and-wheel footp
 
 **Floor IR** defaults **off** (rover drives into holes like a 4×4). Enable it to detect depression edges and route around them. If movement stays within `0.12 m` for `1.8 s`, shared recovery reverses, looks toward the clearest path, escapes, then resumes with a cooldown.
 
+The rover **tilts** from the four wheel ground samples (pitch / roll + visual suspension) on hills and holes.
+
 ---
 
 ## 🛞🤖 Built-in algorithms
 
 | Algorithm | What it does |
 |-----------|--------------|
+| **Bug2** (`bug2`) | Follows the M-line to the goal and traces obstacles when blocked *(default)* |
 | **Pure Pursuit** (`pure_pursuit`) | Tracks the waypoint path using a lookahead target |
-| **Bug2** (`bug2`) | Follows the M-line to the goal and traces obstacles when blocked |
 | **VFH** (`vfh`) | Builds a local steering choice from obstacle sectors |
 | **Custom** (`custom`) | JS pad: copy the robot API, paste a `loop()` that sets `v` and `omega` |
+
+Full walkthrough (EN/ES + FAQ): **[wiki/index.html](wiki/index.html)**
 
 ---
 
@@ -89,10 +94,11 @@ The default hit-test uses the rover’s complete **2.8×3 m body-and-wheel footp
 
 ```
 index.html              # 3-column UI + Custom JS pad
-main.js                 # scene, rover, mission, telemetry, Custom checker
+main.js                 # scene, rover, mission, maps, Error Report, Custom checker
 nav.js                  # sensors + algorithms
 style.css               # layout
 scripts/smoke_sim.mjs   # smoke test
+wiki/index.html         # bilingual wiki (EN/ES) + FAQ
 docs/HOW_IT_WORKS.md    # how the sim works
 docs/ARCHITECTURE.md    # files + data flow
 docs/CUSTOM_JS.md       # Custom pad
@@ -100,7 +106,7 @@ docs/screenshot.png     # README preview
 notes/                  # extra API wiki
 ```
 
-Walkthrough: **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** (sensors, algorithms, Custom pad, telemetry, physics).
+Walkthrough: **[wiki/index.html](wiki/index.html)** · **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)**
 
 ---
 
@@ -111,6 +117,7 @@ Walkthrough: **[docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** (sensors, algorith
 - [x] Hit test toggle (avoid vs push light props)
 - [x] Prop mass / scale inspector
 - [x] GitHub README screenshot
+- [x] Bilingual HTML wiki (`wiki/`)
 - [ ] GitHub Pages live demo
 
 ---

@@ -664,8 +664,12 @@ export function createNavSystem(ctx) {
         const clear = reading.forwardClear;
         const recovery = stuckRecoveryCommand(headingErr, reading, navState);
         if (recovery) return recovery;
-        const safe = safetyCommand(headingErr, reading, navState);
-        if (safe) return safe;
+        // Bug2 owns boundary follow — shared rose go-around steals the wheel
+        // and leaves the rover circling forever while mode stays BUG_FOLLOW.
+        if (navState.mode !== 'BUG_FOLLOW') {
+            const safe = safetyCommand(headingErr, reading, navState);
+            if (safe) return safe;
+        }
 
         if (activeAlgo === 'custom') {
             return customRunner({
@@ -692,26 +696,82 @@ export function createNavSystem(ctx) {
         }
 
         if (activeAlgo === 'bug2') {
+            const clearOk = !Number.isFinite(clear) || clear > 1.50;
+            const goalClear = polarClearance(reading, headingErr);
+            const goalLaneOpen = goalClear > 1.85 && !blocked && clearOk;
+
             if (navState.mode === 'BUG_FOLLOW') {
-                const side = navState.bugSide;
-                let omega = side * MAX_OMEGA * 0.60;
-                let v = MAX_SPEED * 0.60;
-                if (reading.minObstacleDist < 0.9) omega = side * MAX_OMEGA * 0.95;
-                const closerOnMline = mLineDist(target, missionStart) < 0.45
-                    && distToGoal(target) < navState.bugStartDist - 0.25;
-                const frontOpen = reading.forwardClear > 1.60 && !blocked;
-                if (closerOnMline && frontOpen) navState.mode = 'TRACK';
-                return { v, omega };
+                const side = navState.bugSide < 0 ? -1 : 1;
+                if (!Number.isFinite(navState.bugLastX)) {
+                    navState.bugLastX = robot.position.x;
+                    navState.bugLastZ = robot.position.z;
+                    navState.bugFollowDist = 0;
+                }
+                navState.bugFollowDist = (navState.bugFollowDist || 0) + Math.hypot(
+                    robot.position.x - navState.bugLastX,
+                    robot.position.z - navState.bugLastZ,
+                );
+                navState.bugLastX = robot.position.x;
+                navState.bugLastZ = robot.position.z;
+
+                const dGoal = distToGoal(target);
+                const onMline = mLineDist(target, missionStart) < 1.35;
+                const closer = dGoal < (navState.bugStartDist || dGoal) - 0.12;
+                const frontOpen = clearOk && !blocked;
+                const aimGoal = goalLaneOpen && Math.abs(headingErr) < 0.95;
+
+                if ((onMline && closer && frontOpen) || aimGoal) {
+                    navState.mode = 'TRACK';
+                    navState.bugFollowDist = 0;
+                    navState.bugFlipped = 0;
+                } else if ((navState.bugFollowDist || 0) > 12) {
+                    if (!navState.bugFlipped) {
+                        navState.bugSide = -side;
+                        navState.bugFlipped = 1;
+                        navState.bugFollowDist = 0;
+                    } else {
+                        // Second loop — break out and drive toward the goal.
+                        navState.mode = 'TRACK';
+                        navState.bugFollowDist = 0;
+                        navState.bugFlipped = 0;
+                    }
+                }
+
+                if (navState.mode === 'BUG_FOLLOW') {
+                    let omega = side * MAX_OMEGA * 0.55;
+                    let v = MAX_SPEED * 0.55;
+                    const sideClear = polarClearance(reading, side * 0.90);
+                    if (reading.minObstacleDist < 0.85) {
+                        omega = side * MAX_OMEGA * 0.95;
+                        v = MAX_SPEED * 0.40;
+                    } else if (Number.isFinite(sideClear) && sideClear > 2.8) {
+                        // Drift back toward the wall so we can re-hit the M-line.
+                        omega = side * MAX_OMEGA * 0.28;
+                    }
+                    return { v, omega };
+                }
             }
-            if (blocked && clear < 1.6) {
+
+            const noseTight = blocked && Number.isFinite(clear) && clear < 1.70;
+            if (noseTight || (blocked && goalClear < 1.50)) {
                 navState.mode = 'BUG_FOLLOW';
                 navState.bugSide = reading.steerHint || pickRoseSide(headingErr, reading);
                 navState.bugStartDist = distToGoal(target);
-                return { v: MAX_SPEED * 0.40, omega: navState.bugSide * MAX_OMEGA * 0.75 };
+                navState.bugFollowDist = 0;
+                navState.bugFlipped = 0;
+                navState.bugLastX = robot.position.x;
+                navState.bugLastZ = robot.position.z;
+                return {
+                    v: MAX_SPEED * 0.35,
+                    omega: navState.bugSide * MAX_OMEGA * 0.80,
+                };
             }
+
             navState.mode = 'TRACK';
             const omega = Math.max(-MAX_OMEGA, Math.min(MAX_OMEGA, headingErr * 2.2));
-            const v = clear < 2.5 ? MAX_SPEED * 0.55 : MAX_SPEED;
+            const v = (!Number.isFinite(clear) || clear >= 2.5)
+                ? MAX_SPEED
+                : MAX_SPEED * 0.55;
             return { v, omega };
         }
 

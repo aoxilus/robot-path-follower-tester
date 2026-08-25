@@ -9,105 +9,104 @@
   </head>
   <body>
     <div id="app-shell">
-      <!-- IZQUIERDA: settings -->
+      <!-- LEFT: mission controls -->
       <aside id="panel-left" class="panel">
         <header class="panel-header">
-          <div class="lang-row">
+          <div class="lang-row" role="group" aria-label="Language">
             <button type="button" class="lang-btn active" data-lang="en">EN</button>
             <button type="button" class="lang-btn" data-lang="es">ES</button>
           </div>
           <h1 data-i18n="title">Robot Path Follower Tester</h1>
         </header>
 
-        <section class="panel-section">
-          <h2 data-i18n="sectionSensors">Sensors</h2>
-          <p class="field-label" data-i18n="sensorHint">Enable sensors — algorithms use what is active</p>
-          <div class="sensor-grid" id="sensorGroup">
-            <label class="sensor-check">
-              <input type="checkbox" id="sensorLidar" checked>
-              <span data-i18n="sensorLidar">LIDAR (360° scan, 6 m)</span>
-            </label>
-            <label class="sensor-check">
-              <input type="checkbox" id="sensorUltrasonic" checked>
-              <span data-i18n="sensorUltrasonic">Ultrasonic (front)</span>
-            </label>
-            <label class="sensor-check">
-              <input type="checkbox" id="sensorIr" checked>
-              <span data-i18n="sensorIr">3× IR front (contact range)</span>
-            </label>
-            <label class="sensor-check">
-              <input type="checkbox" id="sensorFloorIr">
-              <span data-i18n="sensorFloorIr">Floor IR (holes; off = 4×4)</span>
-            </label>
-            <label class="sensor-check">
-              <input type="checkbox" id="sensorHitTest" checked>
-              <span data-i18n="sensorHitTest">Spring bumper (contact hit test)</span>
-            </label>
-          </div>
-          <p id="sensorStatus" class="sensor-status" aria-live="polite"></p>
-        </section>
+        <div class="panel-scroll">
+          <section class="panel-section">
+            <h2 data-i18n="sectionSensors">Sensors</h2>
+            <div class="sensor-grid" id="sensorGroup">
+              <label class="sensor-check">
+                <input type="checkbox" id="sensorLidar" checked>
+                <span data-i18n="sensorLidar">LIDAR (360° scan, 6 m)</span>
+              </label>
+              <label class="sensor-check">
+                <input type="checkbox" id="sensorUltrasonic" checked>
+                <span data-i18n="sensorUltrasonic">Ultrasonic (front)</span>
+              </label>
+              <label class="sensor-check">
+                <input type="checkbox" id="sensorIr" checked>
+                <span data-i18n="sensorIr">3× IR front (contact range)</span>
+              </label>
+              <label class="sensor-check">
+                <input type="checkbox" id="sensorFloorIr">
+                <span data-i18n="sensorFloorIr">Floor IR (holes; off = 4×4)</span>
+              </label>
+              <label class="sensor-check">
+                <input type="checkbox" id="sensorHitTest" checked>
+                <span data-i18n="sensorHitTest">Spring bumper (contact hit test)</span>
+              </label>
+            </div>
+            <p id="sensorStatus" class="sensor-status" aria-live="polite"></p>
+          </section>
 
-        <section class="panel-section">
-          <h2 data-i18n="sectionNav">Navigation</h2>
-          <p class="field-label" data-i18n="algorithmLabel">Path Algorithm:</p>
-          <div class="btn-group btn-group-stack" id="algoGroup" role="group">
-            <div class="algo-row">
-              <button type="button" class="toggle-btn active" data-algo="pure_pursuit" data-i18n="algoPurePursuit">Pure Pursuit</button>
-              <button type="button" class="algo-help-btn" data-algo-help="pure_pursuit" title="?" aria-label="Help">?</button>
+          <section class="panel-section">
+            <h2 data-i18n="sectionNav">Navigation</h2>
+            <div class="btn-group btn-group-stack" id="algoGroup" role="group" aria-label="Path algorithm">
+              <div class="algo-row">
+                <button type="button" class="toggle-btn active" data-algo="bug2" data-i18n="algoBug2">Bug2 (M-line)</button>
+                <button type="button" class="algo-help-btn" data-algo-help="bug2" title="?" aria-label="Help">?</button>
+              </div>
+              <div class="algo-row">
+                <button type="button" class="toggle-btn" data-algo="pure_pursuit" data-i18n="algoPurePursuit">Pure Pursuit</button>
+                <button type="button" class="algo-help-btn" data-algo-help="pure_pursuit" title="?" aria-label="Help">?</button>
+              </div>
+              <div class="algo-row">
+                <button type="button" class="toggle-btn" data-algo="vfh" data-i18n="algoVfh">VFH</button>
+                <button type="button" class="algo-help-btn" data-algo-help="vfh" title="?" aria-label="Help">?</button>
+              </div>
+              <div class="algo-row">
+                <button type="button" class="toggle-btn" data-algo="custom" data-i18n="algoCustom">Custom (JS hook)</button>
+                <button type="button" class="algo-help-btn" data-algo-help="custom" title="?" aria-label="Help">?</button>
+              </div>
             </div>
-            <div class="algo-row">
-              <button type="button" class="toggle-btn" data-algo="bug2" data-i18n="algoBug2">Bug2 (M-line)</button>
-              <button type="button" class="algo-help-btn" data-algo-help="bug2" title="?" aria-label="Help">?</button>
+            <p class="hint arena-hint" data-i18n="arenaHint">Arena 30×30 m (900 m²) · robot 2×3 m · waypoints snap to grid</p>
+            <div class="btn-row">
+              <button type="button" id="startBtn" class="btn btn-primary" data-i18n="startBtn">Start Mission</button>
+              <button type="button" id="resetBtn" class="btn btn-danger" data-i18n="resetBtn">Reset</button>
             </div>
-            <div class="algo-row">
-              <button type="button" class="toggle-btn" data-algo="vfh" data-i18n="algoVfh">VFH</button>
-              <button type="button" class="algo-help-btn" data-algo-help="vfh" title="?" aria-label="Help">?</button>
-            </div>
-            <div class="algo-row">
-              <button type="button" class="toggle-btn" data-algo="custom" data-i18n="algoCustom">Custom (JS hook)</button>
-              <button type="button" class="algo-help-btn" data-algo-help="custom" title="?" aria-label="Help">?</button>
-            </div>
-          </div>
-          <p class="hint arena-hint" data-i18n="arenaHint">Arena 30×30 m (900 m²) · robot 2×3 m · waypoints snap to grid</p>
-          <div class="btn-row">
-            <button type="button" id="startBtn" data-i18n="startBtn">Start Exploration</button>
-            <button type="button" id="resetBtn" data-i18n="resetBtn">Reset</button>
-          </div>
-          <button type="button" id="showErrorReportBtn" data-i18n="showErrorReportBtn">Show Error Report</button>
-        </section>
+            <button type="button" id="showErrorReportBtn" class="btn btn-warn" data-i18n="showErrorReportBtn">Error Report</button>
+          </section>
 
-        <section class="panel-section">
-          <h2 data-i18n="sectionMode">Interaction</h2>
-          <div class="btn-group" id="modeGroup" role="group">
-            <button type="button" class="toggle-btn active" data-mode="waypoints" data-i18n="modeWaypoints">Waypoints</button>
-            <button type="button" class="toggle-btn" data-mode="objects" data-i18n="modeObjects">Objects</button>
-          </div>
-          <p id="status" class="status-line" data-i18n="modeSetWaypoints">Current Mode: Set Waypoints</p>
-          <p class="hint hint-waypoints" data-i18n="waypointHint">Click the center scene to set waypoints (Green start, Yellow middle, Red end)</p>
-          <p class="hint hint-pathflow" data-i18n="pathFlowHint">Glow line shows your path — click the floor (short click, don't drag the camera)</p>
-        </section>
+          <section class="panel-section">
+            <h2 data-i18n="sectionMode">Interaction</h2>
+            <div class="btn-group" id="modeGroup" role="group" aria-label="Interaction mode">
+              <button type="button" class="toggle-btn active" data-mode="waypoints" data-i18n="modeWaypoints">Set Waypoints</button>
+              <button type="button" class="toggle-btn" data-mode="objects" data-i18n="modeObjects">Move Objects</button>
+            </div>
+            <p id="status" class="status-line" data-i18n="modeSetWaypoints">Current Mode: Set Waypoints</p>
+            <p class="hint hint-waypoints" data-i18n="waypointHint">Short-click floor = waypoint · hold+drag = move camera / objects</p>
+          </section>
+        </div>
       </aside>
 
-      <!-- CENTRO: robot / escena 3D -->
+      <!-- CENTER: 3D scene -->
       <main id="viewport" aria-label="3D simulation" data-drop-label="Drop here">
         <div id="buildStamp">build 08202026 1300</div>
         <div id="customPad" class="custom-pad">
           <div class="custom-pad-bar">
             <h2 data-i18n="customPadTitle">Custom JS</h2>
-            <button type="button" id="customPadClose" data-i18n="customPadClose">Close</button>
+            <button type="button" id="customPadClose" class="btn btn-ghost" data-i18n="customPadClose">Close</button>
           </div>
           <div class="custom-pad-pane">
             <div class="custom-pad-pane-head">
               <span data-i18n="customSetupLabel">void setup — robot API (read-only)</span>
-              <button type="button" id="customSetupCopy" data-i18n="copyLogBtn">Copy</button>
+              <button type="button" id="customSetupCopy" class="btn btn-ghost" data-i18n="copyBtn">Copy</button>
             </div>
             <textarea id="customSetupSrc" readonly spellcheck="false"></textarea>
           </div>
           <div class="custom-pad-pane custom-pad-pane-loop">
             <div class="custom-pad-pane-head">
               <span data-i18n="customLoopLabel">loop() — assign v and omega</span>
-              <button type="button" id="customCheckBtn" data-i18n="customCheckBtn">Check</button>
-              <button type="button" id="customSaveBtn" data-i18n="customSaveBtn">Save</button>
+              <button type="button" id="customCheckBtn" class="btn btn-ghost" data-i18n="customCheckBtn">Check</button>
+              <button type="button" id="customSaveBtn" class="btn btn-ghost" data-i18n="customSaveBtn">Save</button>
             </div>
             <textarea id="customLoopSrc" spellcheck="false"></textarea>
             <p id="customCheckMsg" class="custom-check-msg"></p>
@@ -115,112 +114,113 @@
         </div>
       </main>
 
-      <!-- DERECHA: drag & drop objetos -->
+      <!-- RIGHT: scene editing -->
       <aside id="panel-right" class="panel">
-        <section class="panel-section">
-          <h2 data-i18n="sectionDrag">Drag &amp; Drop</h2>
-          <p class="field-label" data-i18n="dragPaletteLabel">Drag onto the scene:</p>
-          <div class="drag-palette" id="dragPalette">
-            <div class="drag-item" data-type="sphere">
-              <span class="drag-icon sphere-icon" aria-hidden="true"></span>
-              <span>
-                <span class="drag-label" data-i18n="objSphere">Sphere</span>
-                <span class="drag-sub" data-i18n="dragSphereHint">Rolls when pushed</span>
-              </span>
+        <div class="panel-scroll">
+          <section class="panel-section">
+            <h2 data-i18n="sectionScene">Scene</h2>
+            <div class="toolbar-row">
+              <span class="toolbar-label" data-i18n="dragPaletteLabel">Drag</span>
+              <div class="drag-palette" id="dragPalette">
+                <button type="button" class="drag-item" data-type="sphere" title="Sphere" aria-label="Sphere">
+                  <span class="drag-icon sphere-icon" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="drag-item" data-type="box" title="Cube" aria-label="Cube">
+                  <span class="drag-icon box-icon" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="drag-item" data-type="cylinder" title="Cylinder" aria-label="Cylinder">
+                  <span class="drag-icon cylinder-icon" aria-hidden="true"></span>
+                </button>
+              </div>
             </div>
-            <div class="drag-item" data-type="box">
-              <span class="drag-icon box-icon" aria-hidden="true"></span>
-              <span>
-                <span class="drag-label" data-i18n="objBox">Cube</span>
-                <span class="drag-sub" data-i18n="dragBoxHint">Stackable block</span>
-              </span>
+            <div class="btn-row tight">
+              <button type="button" id="saveMapBtn" class="btn btn-secondary" data-i18n="saveMapBtn">Save map</button>
+              <button type="button" id="loadMapBtn" class="btn btn-secondary" data-i18n="loadMapBtn">Load map</button>
             </div>
-            <div class="drag-item" data-type="cylinder">
-              <span class="drag-icon cylinder-icon" aria-hidden="true"></span>
-              <span>
-                <span class="drag-label" data-i18n="objCylinder">Cylinder</span>
-                <span class="drag-sub" data-i18n="dragCylinderHint">Tips over easily</span>
-              </span>
-            </div>
-          </div>
-          <label for="terrainSize" class="field-label">
-            <span data-i18n="terrainSizeLabel">Terrain:</span>
-            <span id="terrainValue" class="mass-value">900 m²</span>
-          </label>
-          <input type="range" id="terrainSize" min="10" max="60" step="5" value="30">
-          <p class="hint" data-i18n="terrainSizeHint">Side length 10–60 m · area in m²</p>
-          <button type="button" id="drawTerrainBtn" class="pencil-btn" aria-pressed="false">
-            <span class="pencil-emoji" aria-hidden="true">✏️</span>
-            <span data-i18n="drawTerrainLabel">Draw shape</span>
-          </button>
-          <p class="hint" data-i18n="drawTerrainHint">Pencil on: drag on the floor. Then extrude ↑ mountain or ↓ depression.</p>
-          <label for="stampHeight" class="field-label">
-            <span data-i18n="stampHeightLabel">Extrude:</span>
-            <span id="stampHeightValue" class="mass-value">0 m · flat</span>
-          </label>
-          <input type="range" id="stampHeight" min="-5" max="5" step="0.1" value="0" disabled>
-          <div class="stamp-height-ends">
-            <span data-i18n="stampHeightDown">↓ intrude</span>
-            <span data-i18n="stampHeightUp">extrude ↑</span>
-          </div>
-          <p class="hint" data-i18n="stampHeightHint">↑ raises a mountain · ↓ sinks a visible depression</p>
-          <button type="button" id="clearStampBtn" data-i18n="clearStampBtn">Remove shape</button>
-          <label for="objectMass" class="field-label">
-            <span data-i18n="objectMassLabel">Weight (kg):</span>
-            <span id="massValue" class="mass-value">5.0</span>
-          </label>
-          <input type="range" id="objectMass" min="0.5" max="50" step="0.5" value="5">
-          <label for="objectScale" class="field-label">
-            <span data-i18n="objectScaleLabel">Scale:</span>
-            <span id="scaleValue" class="mass-value">1.00</span>
-          </label>
-          <input type="range" id="objectScale" min="0.25" max="3" step="0.05" value="1">
-          <p id="propEditHint" class="hint" data-i18n="propEditHint">Select an object to edit mass/scale, or set defaults for the next drop.</p>
-          <button type="button" id="clearObjectsBtn" data-i18n="clearObjectsBtn">Clear Objects</button>
-          <label class="sensor-check move-objects-toggle">
-            <input type="checkbox" id="moveObjectsMode">
-            <span data-i18n="moveObjectsLabel">Move objects (hold+drag)</span>
-          </label>
-          <p class="hint" data-i18n="moveObjectsHint">When on: camera locked (no zoom/orbit). Drag cones and props only.</p>
-          <p class="hint" data-i18n="objectHint">Drag from palette — a 3D preview follows the cursor; release on the scene to place.</p>
-        </section>
+            <p class="hint" data-i18n="mapSaveHint">Each save is dated — Load opens a picker</p>
+          </section>
 
-        <section class="panel-section panel-section-grow">
-          <div class="log-header">
-            <h2 data-i18n="telemetryLog">Telemetry Log</h2>
-            <div class="log-actions">
-              <button type="button" id="copyLogBtn" data-i18n="copyLogBtn">Copy</button>
-              <button type="button" id="exportTelemetryJson" data-i18n="exportTelemetryJson">Export JSON</button>
-              <button type="button" id="exportTelemetryCsv" data-i18n="exportTelemetryCsv">Export CSV</button>
+          <section class="panel-section">
+            <h2 data-i18n="sectionTerrain">Terrain</h2>
+            <label for="terrainSize" class="field-label">
+              <span data-i18n="terrainSizeLabel">Size</span>
+              <span id="terrainValue" class="mass-value">900 m²</span>
+            </label>
+            <input type="range" id="terrainSize" min="10" max="60" step="5" value="30">
+            <button type="button" id="drawTerrainBtn" class="btn btn-tool" aria-pressed="false">
+              <span class="pencil-emoji" aria-hidden="true">✏️</span>
+              <span data-i18n="drawTerrainLabel">Draw shape</span>
+            </button>
+            <label for="stampHeight" class="field-label">
+              <span data-i18n="stampHeightLabel">Extrude</span>
+              <span id="stampHeightValue" class="mass-value">0 m · flat</span>
+            </label>
+            <input type="range" id="stampHeight" min="-5" max="5" step="0.1" value="0" disabled>
+            <div class="stamp-height-ends">
+              <span data-i18n="stampHeightDown">↓ hole</span>
+              <span data-i18n="stampHeightUp">hill ↑</span>
             </div>
-          </div>
-          <ul id="logList"></ul>
-        </section>
+            <button type="button" id="clearStampBtn" class="btn btn-muted" data-i18n="clearStampBtn">Remove shape</button>
+          </section>
+
+          <section class="panel-section">
+            <h2 data-i18n="sectionProps">Props</h2>
+            <label for="objectMass" class="field-label">
+              <span data-i18n="objectMassLabel">Weight (kg)</span>
+              <span id="massValue" class="mass-value">5.0</span>
+            </label>
+            <input type="range" id="objectMass" min="0.5" max="50" step="0.5" value="5">
+            <label for="objectScale" class="field-label">
+              <span data-i18n="objectScaleLabel">Scale</span>
+              <span id="scaleValue" class="mass-value">1.00</span>
+            </label>
+            <input type="range" id="objectScale" min="0.25" max="3" step="0.05" value="1">
+            <p id="propEditHint" class="hint" data-i18n="propEditHint">Sliders = selected prop, or defaults for next drop</p>
+            <button type="button" id="clearObjectsBtn" class="btn btn-muted" data-i18n="clearObjectsBtn">Clear Objects</button>
+          </section>
+        </div>
       </aside>
     </div>
+
     <dialog id="errorReportDialog" aria-labelledby="errorReportTitle">
       <div class="error-report-header">
         <h2 id="errorReportTitle" data-i18n="errorReportTitle">Robot Error Report</h2>
-        <button type="button" id="closeErrorReportBtn" aria-label="Close">×</button>
+        <button type="button" id="closeErrorReportBtn" class="btn btn-ghost" aria-label="Close">×</button>
       </div>
-      <p data-i18n="errorReportHint">Copy report and paste it here.</p>
+      <p data-i18n="errorReportHint">Includes robot state + recent log. Copy and paste in chat.</p>
       <textarea id="errorReportText" readonly spellcheck="false"></textarea>
       <div class="error-report-actions">
-        <button type="button" id="copyErrorReportBtn" data-i18n="copyErrorReportBtn">Copy Report</button>
-        <button type="button" id="closeErrorReportBottomBtn" data-i18n="customPadClose">Close</button>
+        <button type="button" id="copyErrorReportBtn" class="btn btn-warn" data-i18n="copyErrorReportBtn">Copy Report</button>
+        <button type="button" id="exportTelemetryJson" class="btn btn-ghost" data-i18n="exportTelemetryJson">JSON</button>
+        <button type="button" id="exportTelemetryCsv" class="btn btn-ghost" data-i18n="exportTelemetryCsv">CSV</button>
+        <button type="button" id="closeErrorReportBottomBtn" class="btn btn-secondary" data-i18n="customPadClose">Close</button>
       </div>
     </dialog>
+
     <dialog id="algoHelpDialog" aria-labelledby="algoHelpTitle">
       <div class="error-report-header">
         <h2 id="algoHelpTitle">Algorithm</h2>
-        <button type="button" id="closeAlgoHelpBtn" aria-label="Close">×</button>
+        <button type="button" id="closeAlgoHelpBtn" class="btn btn-ghost" aria-label="Close">×</button>
       </div>
       <div id="algoHelpBody" class="algo-help-body"></div>
       <pre id="algoHelpCode" class="algo-help-code"></pre>
       <div class="error-report-actions">
-        <button type="button" id="closeAlgoHelpBottomBtn" data-i18n="customPadClose">Close</button>
+        <button type="button" id="closeAlgoHelpBottomBtn" class="btn btn-secondary" data-i18n="customPadClose">Close</button>
       </div>
     </dialog>
+
+    <dialog id="mapPickerDialog" aria-labelledby="mapPickerTitle">
+      <div class="error-report-header">
+        <h2 id="mapPickerTitle" data-i18n="mapPickerTitle">Saved maps</h2>
+        <button type="button" id="closeMapPickerBtn" class="btn btn-ghost" aria-label="Close">×</button>
+      </div>
+      <p class="hint" data-i18n="mapPickerHint">Pick a timestamped save to load into the scene.</p>
+      <ul id="mapPickerList" class="map-picker-list"></ul>
+      <div class="error-report-actions">
+        <button type="button" id="closeMapPickerBottomBtn" class="btn btn-secondary" data-i18n="customPadClose">Close</button>
+      </div>
+    </dialog>
+
     <script type="module" src="./main.js"></script>
   </body>
 </html>

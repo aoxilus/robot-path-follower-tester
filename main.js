@@ -7,7 +7,7 @@ import * as CANNON from 'cannon-es';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { createNavSystem } from './nav.js';
 
-const BUILD_STAMP = '08242026 2245';
+const BUILD_STAMP = '08242026 2350';
 
 // 🌍 i18n — bilingual UI strings (English + Español)
 const translations = {
@@ -16,12 +16,12 @@ const translations = {
         title: 'Robot Path Follower Tester',
         langLabel: 'Language:',
         algorithmLabel: 'Path Algorithm:',
-        algoPurePursuit: 'Pure Pursuit (path tracking)',
-        algoBug2: 'Bug2 (M-line boundary follow)',
+        algoPurePursuit: 'Pure Pursuit',
+        algoBug2: 'Bug2 (M-line)',
         algoDwa: 'DWA (dynamic window)',
-        algoVfh: 'VFH (vector field histogram)',
+        algoVfh: 'VFH',
         algoPotential: 'Potential Field (attract/repel)',
-        algoCustom: 'Custom (JS pad)',
+        algoCustom: 'Custom (JS)',
         customPadTitle: 'Custom JS',
         customSetupLabel: 'void setup — robot API (read-only)',
         customLoopLabel: 'loop() — assign v and omega',
@@ -32,6 +32,7 @@ const translations = {
         customCheckFail: 'Check failed: {msg}',
         customSaved: 'Saved',
         customSetupCopied: 'Copied',
+        copyBtn: 'Copy',
         sectionSensors: 'Sensors',
         sensorHint: 'Enable sensors — algorithms use what is active',
         sensorLidar: 'LIDAR (360° scan, 6 m)',
@@ -45,20 +46,17 @@ const translations = {
         arenaHint: 'Arena {side}×{side} m ({area} m²) · robot 2×3 m · waypoints snap to grid',
         startBtn: 'Start Mission',
         resetBtn: 'Reset',
-        waypointHint: 'Floor: drag = rotate/zoom camera · short click = add waypoint. Rover/objects: click+hold+drag to move.',
-        pathFlowHint: 'Green glow = rover start · cyan line = path to waypoints',
-        modeSetWaypoints: 'Current Mode: Set Waypoints',
-        waypointsSet: 'Waypoints Set: {count}',
-        telemetryLog: 'Telemetry Log',
-        copyLogBtn: 'Copy',
-        exportTelemetryJson: 'Export JSON',
-        exportTelemetryCsv: 'Export CSV',
-        showErrorReportBtn: 'Show Error Report',
+        waypointHint: 'Short-click floor = waypoint · Move Objects = drag props',
+        pathFlowHint: 'Glow line shows your path',
+        modeSetWaypoints: 'Mode: Set Waypoints',
+        waypointsSet: 'Waypoints: {count}',
+        exportTelemetryJson: 'JSON',
+        exportTelemetryCsv: 'CSV',
+        showErrorReportBtn: 'Error Report',
         errorReportTitle: 'Robot Error Report',
-        errorReportHint: 'Copy report and paste it here.',
+        errorReportHint: 'Includes robot state + recent log. Copy and paste in chat.',
         copyErrorReportBtn: 'Copy Report',
         errorReportCopied: 'Report Copied',
-        logCopied: 'Copied',
         alertNeedWaypoints: 'Place at least one waypoint on the floor (rover position = start).',
         logInit: 'INIT: {algo} · {sensors} · {count} waypoints · accept radius {radius}m',
         logPassed: 'PASSED: Waypoint {index} (within {dist}m)',
@@ -76,49 +74,66 @@ const translations = {
         algoNameCustom: 'Custom (JS pad)',
         interactionModeLabel: 'Interaction Mode:',
         modeWaypoints: 'Set Waypoints',
-        modeObjects: 'Place Physics Objects',
+        modeObjects: 'Move Objects',
         objectTypeLabel: 'Object Type:',
         objSphere: 'Sphere',
         objBox: 'Cube',
         objCylinder: 'Cylinder',
         objCone: 'Cone',
-        objectMassLabel: 'Weight (kg):',
-        objectScaleLabel: 'Scale:',
-        terrainSizeLabel: 'Terrain:',
-        terrainSizeHint: 'Side length 10–60 m · area in m²',
+        objectMassLabel: 'Weight (kg)',
+        objectScaleLabel: 'Scale',
+        terrainSizeLabel: 'Size',
+        terrainSizeHint: '10–60 m side',
         drawTerrainLabel: 'Draw shape',
-        drawTerrainHint: 'Pencil on: drag on the floor. Then extrude ↑ mountain or ↓ depression.',
-        stampHeightLabel: 'Extrude:',
+        drawTerrainHint: 'Draw a loop, then extrude',
+        stampHeightLabel: 'Extrude',
         stampHeightFlat: '0 m · flat',
         stampHeightCavity: '↑ {m} m mountain',
         stampHeightBowl: '↓ {m} m depression',
-        stampHeightDown: '↓ intrude',
-        stampHeightUp: 'extrude ↑',
-        stampHeightHint: '↑ raises a mountain · ↓ sinks a visible depression',
+        stampHeightDown: '↓ hole',
+        stampHeightUp: 'hill ↑',
+        stampHeightHint: '↑ hill · ↓ hole',
         clearStampBtn: 'Remove shape',
-        modeDrawTerrain: 'Draw terrain — hold and drag on the floor to outline a shape',
+        modeDrawTerrain: 'Draw terrain — drag on the floor',
         logStampDrawn: 'TERRAIN: Drew a shape ({n} pts)',
         logStampTooSmall: 'TERRAIN: Shape too small — draw a larger loop',
         logStampHeight: 'TERRAIN: {label}',
         logStampRemoved: 'TERRAIN: Removed shape',
-        propEditHint: 'Select a prop to edit mass/scale. Sliders set defaults for the next drop.',
+        propEditHint: 'Sliders = selected prop, or defaults for next drop',
         clearObjectsBtn: 'Clear Objects',
         moveObjectsLabel: 'Move objects (hold+drag)',
-        moveObjectsHint: 'When on: camera locked (no zoom/orbit). Drag cones and props only.',
-        modeMoveObjects: 'Move objects — camera locked · drag cones & props',
-        objectHint: 'Drag from palette — a 3D preview follows the cursor; release on the scene to place.',
+        moveObjectsHint: 'Move Objects locks the camera for dragging',
+        modeMoveObjects: 'Mode: Move Objects — drag props',
+        objectHint: 'Drag icons into the scene',
         objectMoveHint: 'Hold and drag to move — release to drop',
-        roverSelectedHint: 'Rover selected — hold+drag to move, then short-click floor for waypoints',
+        roverSelectedHint: 'Rover selected — hold+drag to move',
         logObjectMoved: 'OBJECT: Moved {type} to [{x}, {z}]',
-        modePlaceObjects: 'Current Mode: Place Objects',
+        modePlaceObjects: 'Mode: Move Objects',
         logObjectPlaced: 'OBJECT: Placed {type} ({mass} kg) at [{x}, {z}]',
         sectionNav: 'Navigation',
         sectionMode: 'Interaction',
-        sectionDrag: 'Drag & Drop',
-        dragPaletteLabel: 'Drag onto the scene:',
-        dragSphereHint: 'Rolls when pushed',
-        dragBoxHint: 'Stackable block',
-        dragCylinderHint: 'Tips over easily',
+        sectionScene: 'Scene',
+        sectionTerrain: 'Terrain',
+        sectionProps: 'Props',
+        sectionDrag: 'Scene',
+        dragPaletteLabel: 'Drag',
+        dragSphereHint: 'Flies when hit',
+        dragBoxHint: 'Stackable',
+        dragCylinderHint: 'Tips easily',
+        saveMapBtn: 'Save map',
+        loadMapBtn: 'Load map',
+        mapSaveHint: 'Each save is dated — Load opens a picker',
+        mapPickerTitle: 'Saved maps',
+        mapPickerHint: 'Pick a timestamped save to load into the scene.',
+        mapPickerEmpty: 'No saves yet — use Save map first',
+        mapPickerMeta: '{wp} WP · {props} props · {stamps} terrain',
+        mapPickerLoad: 'Load',
+        mapPickerDelete: 'Delete',
+        logMapSaved: 'MAP: Saved {when}',
+        logMapLoaded: 'MAP: Loaded {when}',
+        logMapMissing: 'MAP: Nothing saved yet — Save map first',
+        logMapBad: 'MAP: Could not load saved data',
+        logMapDeleted: 'MAP: Deleted {when}',
         dropHere: 'Drop here',
     },
     es: {
@@ -126,12 +141,12 @@ const translations = {
         title: 'Probador de Seguidor de Ruta Robot',
         langLabel: 'Idioma:',
         algorithmLabel: 'Algoritmo de ruta:',
-        algoPurePursuit: 'Pure Pursuit (seguimiento)',
-        algoBug2: 'Bug2 (línea-M + contorno)',
+        algoPurePursuit: 'Pure Pursuit',
+        algoBug2: 'Bug2 (línea-M)',
         algoDwa: 'DWA (ventana dinámica)',
-        algoVfh: 'VFH (histograma vectorial)',
+        algoVfh: 'VFH',
         algoPotential: 'Campo potencial',
-        algoCustom: 'Custom (bloc de JS)',
+        algoCustom: 'Custom (JS)',
         customPadTitle: 'JS Custom',
         customSetupLabel: 'void setup — API del robot (solo lectura)',
         customLoopLabel: 'loop() — asigna v y omega',
@@ -142,6 +157,7 @@ const translations = {
         customCheckFail: 'Check falló: {msg}',
         customSaved: 'Guardado',
         customSetupCopied: 'Copiado',
+        copyBtn: 'Copiar',
         sectionSensors: 'Sensores',
         sensorHint: 'Activa sensores — el algoritmo usa los disponibles',
         sensorLidar: 'LIDAR (360°, 6 m)',
@@ -155,20 +171,17 @@ const translations = {
         arenaHint: 'Arena {side}×{side} m ({area} m²) · robot 2×3 m · waypoints en rejilla',
         startBtn: 'Iniciar misión',
         resetBtn: 'Reiniciar',
-        waypointHint: 'Suelo: arrastrar = girar/zoom · clic corto = waypoint. Rover/objetos: mantén clic y arrastra.',
-        pathFlowHint: 'Brillo verde = inicio del rover · línea cyan = ruta a waypoints',
-        modeSetWaypoints: 'Modo actual: Colocar waypoints',
-        waypointsSet: 'Waypoints colocados: {count}',
-        telemetryLog: 'Registro de Telemetría',
-        copyLogBtn: 'Copiar',
-        exportTelemetryJson: 'Exportar JSON',
-        exportTelemetryCsv: 'Exportar CSV',
-        showErrorReportBtn: 'Mostrar reporte de error',
+        waypointHint: 'Clic corto en piso = waypoint · Mover objetos = arrastrar props',
+        pathFlowHint: 'La línea muestra tu ruta',
+        modeSetWaypoints: 'Modo: Colocar waypoints',
+        waypointsSet: 'Waypoints: {count}',
+        exportTelemetryJson: 'JSON',
+        exportTelemetryCsv: 'CSV',
+        showErrorReportBtn: 'Reporte de error',
         errorReportTitle: 'Reporte de error del robot',
-        errorReportHint: 'Copia el reporte y pégalo aquí.',
+        errorReportHint: 'Incluye estado del robot + log reciente. Copia y pégalo en el chat.',
         copyErrorReportBtn: 'Copiar reporte',
         errorReportCopied: 'Reporte copiado',
-        logCopied: 'Copiado',
         alertNeedWaypoints: 'Coloca al menos un waypoint en el suelo (posición del rover = inicio).',
         logInit: 'INICIO: {algo} · {sensors} · {count} waypoints · radio {radius}m',
         logPassed: 'PASADO: Waypoint {index} (a {dist}m)',
@@ -186,49 +199,66 @@ const translations = {
         algoNameCustom: 'Custom (bloc de JS)',
         interactionModeLabel: 'Modo de interacción:',
         modeWaypoints: 'Colocar waypoints',
-        modeObjects: 'Colocar objetos físicos',
+        modeObjects: 'Mover objetos',
         objectTypeLabel: 'Tipo de objeto:',
         objSphere: 'Esfera',
         objBox: 'Cubo',
         objCylinder: 'Cilindro',
         objCone: 'Cono',
-        objectMassLabel: 'Peso (kg):',
-        objectScaleLabel: 'Escala:',
-        terrainSizeLabel: 'Terreno:',
-        terrainSizeHint: 'Lado 10–60 m · área en m²',
+        objectMassLabel: 'Peso (kg)',
+        objectScaleLabel: 'Escala',
+        terrainSizeLabel: 'Tamaño',
+        terrainSizeHint: 'Lado 10–60 m',
         drawTerrainLabel: 'Dibujar forma',
-        drawTerrainHint: 'Lápiz on: arrastra en el piso. Luego extruye ↑ montaña o ↓ depresión.',
-        stampHeightLabel: 'Extruir:',
+        drawTerrainHint: 'Traza un lazo, luego extruye',
+        stampHeightLabel: 'Extruir',
         stampHeightFlat: '0 m · plano',
         stampHeightCavity: '↑ {m} m montaña',
         stampHeightBowl: '↓ {m} m depresión',
-        stampHeightDown: '↓ hundir',
-        stampHeightUp: 'elevar ↑',
-        stampHeightHint: '↑ levanta una montaña · ↓ hunde una depresión visible',
+        stampHeightDown: '↓ hoyo',
+        stampHeightUp: 'colina ↑',
+        stampHeightHint: '↑ colina · ↓ hoyo',
         clearStampBtn: 'Quitar forma',
-        modeDrawTerrain: 'Dibujar terreno — mantén y arrastra en el piso para trazar la forma',
+        modeDrawTerrain: 'Dibujar terreno — arrastra en el piso',
         logStampDrawn: 'TERRENO: Forma dibujada ({n} pts)',
         logStampTooSmall: 'TERRENO: Forma muy chica — traza un lazo más grande',
         logStampHeight: 'TERRENO: {label}',
         logStampRemoved: 'TERRENO: Forma quitada',
-        propEditHint: 'Selecciona un objeto para editar peso/escala. Los sliders son default del próximo drop.',
+        propEditHint: 'Sliders = prop seleccionado, o default del próximo drop',
         clearObjectsBtn: 'Quitar objetos',
         moveObjectsLabel: 'Mover objetos (mantén+arrastra)',
-        moveObjectsHint: 'Activo: cámara bloqueada (sin zoom/órbita). Solo arrastra conos y props.',
-        modeMoveObjects: 'Mover objetos — cámara bloqueada · arrastra conos y props',
-        objectHint: 'Arrastra del panel — una figura 3D sigue el cursor; suelta en la escena para colocar.',
+        moveObjectsHint: 'Mover objetos bloquea la cámara para arrastrar',
+        modeMoveObjects: 'Modo: Mover objetos — arrastra props',
+        objectHint: 'Arrastra los iconos a la escena',
         objectMoveHint: 'Mantén y arrastra — suelta para soltar',
-        roverSelectedHint: 'Rover seleccionado — mantén+arrastra para mover, luego clic corto en suelo para waypoints',
+        roverSelectedHint: 'Rover seleccionado — mantén+arrastra para mover',
         logObjectMoved: 'OBJETO: {type} movido a [{x}, {z}]',
-        modePlaceObjects: 'Modo actual: Colocar objetos',
+        modePlaceObjects: 'Modo: Mover objetos',
         logObjectPlaced: 'OBJETO: {type} ({mass} kg) en [{x}, {z}]',
         sectionNav: 'Navegación',
         sectionMode: 'Interacción',
-        sectionDrag: 'Arrastrar y soltar',
-        dragPaletteLabel: 'Arrastra al escenario:',
-        dragSphereHint: 'Rueda al empujarla',
-        dragBoxHint: 'Bloque apilable',
+        sectionScene: 'Escena',
+        sectionTerrain: 'Terreno',
+        sectionProps: 'Props',
+        sectionDrag: 'Escena',
+        dragPaletteLabel: 'Arrastra',
+        dragSphereHint: 'Vuela al golpearla',
+        dragBoxHint: 'Apilable',
         dragCylinderHint: 'Se tumba fácil',
+        saveMapBtn: 'Guardar mapa',
+        loadMapBtn: 'Cargar mapa',
+        mapSaveHint: 'Cada guardado tiene fecha — Cargar abre un selector',
+        mapPickerTitle: 'Mapas guardados',
+        mapPickerHint: 'Elige un guardado con fecha/hora para cargar.',
+        mapPickerEmpty: 'Nada guardado — usa Guardar mapa',
+        mapPickerMeta: '{wp} WP · {props} props · {stamps} terreno',
+        mapPickerLoad: 'Cargar',
+        mapPickerDelete: 'Borrar',
+        logMapSaved: 'MAPA: Guardado {when}',
+        logMapLoaded: 'MAPA: Cargado {when}',
+        logMapMissing: 'MAPA: Nada guardado — primero Guardar mapa',
+        logMapBad: 'MAPA: No se pudo cargar',
+        logMapDeleted: 'MAPA: Borrado {when}',
         dropHere: 'Soltar aquí',
     },
 };
@@ -509,7 +539,13 @@ function setTerrainSize(size) {
 
 // 🛞 4-wheel robot — yellow body + 4 cylindrical wheels (differential-drive style)
 const robot = new THREE.Group();
+robot.rotation.order = 'YXZ'; // yaw (y) · pitch (x) · roll (z) — terrain tilt
 const carHeight = 1;
+const WHEEL_RADIUS = 0.5;
+const WHEEL_AXLE_Y = 0.5;
+const ROVER_MAX_TILT = 0.70; // ~40° pitch/roll clamp
+const ROVER_TILT_RATE = 14;
+const ROVER_SUSP_TRAVEL = 0.55;
 
 // Full physical footprint: body + four wheels. Radar/scan visuals stay excluded.
 // Do NOT use setFromObject(robot): sensor graphics would inflate the box.
@@ -640,24 +676,25 @@ obstacles[1].position.set(4, CONE_HALF_H, 3);
 const physicsWorld = new CANNON.World();
 physicsWorld.gravity.set(0, -15, 0);
 physicsWorld.broadphase = new CANNON.NaiveBroadphase();
+// Keep props awake easily so light bumps start knock-over chains.
 physicsWorld.allowSleep = true;
-physicsWorld.solver.iterations = 12;
+physicsWorld.solver.iterations = 14;
 
 const groundMaterial = new CANNON.Material('ground');
 const propMaterial = new CANNON.Material('prop');
 const robotMaterial = new CANNON.Material('robot');
 
 physicsWorld.addContactMaterial(new CANNON.ContactMaterial(groundMaterial, propMaterial, {
-    friction: 0.55,
-    restitution: 0.25,
+    friction: 0.38,
+    restitution: 0.35,
 }));
 physicsWorld.addContactMaterial(new CANNON.ContactMaterial(propMaterial, propMaterial, {
-    friction: 0.45,
-    restitution: 0.2,
+    friction: 0.22,
+    restitution: 0.45,
 }));
 physicsWorld.addContactMaterial(new CANNON.ContactMaterial(robotMaterial, propMaterial, {
-    friction: 0.35,
-    restitution: 0.15,
+    friction: 0.20,
+    restitution: 0.40,
 }));
 physicsWorld.addContactMaterial(new CANNON.ContactMaterial(robotMaterial, groundMaterial, {
     friction: 0.40,
@@ -821,8 +858,8 @@ function createPhysicsProp(type, x, y, z, mass = DEFAULT_PROP_MASS, scale = DEFA
     const body = new CANNON.Body({
         mass: bodyMass,
         material: propMaterial,
-        linearDamping: 0.08,
-        angularDamping: 0.25,
+        linearDamping: 0.03,
+        angularDamping: 0.08,
         collisionFilterGroup: FILTER_PROP,
         collisionFilterMask: -1,
     });
@@ -846,6 +883,8 @@ function createPhysicsProp(type, x, y, z, mass = DEFAULT_PROP_MASS, scale = DEFA
     }
 
     addPropShapes(body, type, s);
+    body.sleepSpeedLimit = 0.12;
+    body.sleepTimeLimit = 0.8;
     mesh.scale.setScalar(s);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -875,9 +914,316 @@ function clearPhysicsProps() {
     physicsProps.length = 0;
 }
 
+function clearAllWaypoints() {
+    waypointMarkers.forEach((m) => {
+        scene.remove(m);
+        m.geometry?.dispose?.();
+        m.material?.dispose?.();
+    });
+    waypointMarkers = [];
+    waypoints = [];
+    waypointsPassed = [];
+    disposePathLines();
+}
+
+function clearAllTerrainStamps() {
+    while (terrainStamps.length > 0) {
+        removeTerrainStamp(terrainStamps[terrainStamps.length - 1]);
+    }
+    selectedStamp = null;
+}
+
+function placeWaypointAt(x, z, y = 0.5) {
+    const clamped = clampToArena(x, z);
+    waypoints.push({ x: clamped.x, z: clamped.z });
+    const marker = new THREE.Mesh(
+        new THREE.SphereGeometry(0.32),
+        new THREE.MeshBasicMaterial({ color: 0xffff00 }),
+    );
+    marker.position.set(clamped.x, y, clamped.z);
+    scene.add(marker);
+    waypointMarkers.push(marker);
+}
+
+const MAP_STORAGE_KEY = 'robot-path-map-v1';
+const MAP_LIBRARY_KEY = 'robot-path-maps-v2';
+const MAP_LIBRARY_MAX = 20;
+
+function formatMapWhen(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return String(iso || '');
+    return d.toLocaleString(currentLang === 'es' ? 'es-MX' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    });
+}
+
+function mapEntrySummary(map) {
+    return {
+        wp: Array.isArray(map?.waypoints) ? map.waypoints.length : 0,
+        props: Array.isArray(map?.props) ? map.props.length : 0,
+        stamps: Array.isArray(map?.stamps) ? map.stamps.length : 0,
+    };
+}
+
+function readMapLibrary() {
+    let list = [];
+    try {
+        const raw = localStorage.getItem(MAP_LIBRARY_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) list = parsed;
+        }
+    } catch (_) {
+        list = [];
+    }
+
+    // Migrate legacy single-slot save once.
+    try {
+        const legacy = localStorage.getItem(MAP_STORAGE_KEY);
+        if (legacy && list.length === 0) {
+            const map = JSON.parse(legacy);
+            if (map && map.version === 1) {
+                list.push({
+                    id: map.savedAt || `legacy-${Date.now()}`,
+                    savedAt: map.savedAt || new Date().toISOString(),
+                    map,
+                });
+                writeMapLibrary(list);
+            }
+        }
+    } catch (_) { /* ignore */ }
+
+    return list.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+}
+
+function writeMapLibrary(list) {
+    localStorage.setItem(MAP_LIBRARY_KEY, JSON.stringify(list.slice(0, MAP_LIBRARY_MAX)));
+}
+
+function serializeMap() {
+    return {
+        version: 1,
+        savedAt: new Date().toISOString(),
+        arenaM: PLANE_SIZE,
+        robot: {
+            x: Number(robot.position.x.toFixed(3)),
+            y: Number(robot.position.y.toFixed(3)),
+            z: Number(robot.position.z.toFixed(3)),
+            heading: Number(robot.rotation.y.toFixed(4)),
+        },
+        waypoints: waypoints.map((wp) => ({ x: wp.x, z: wp.z })),
+        cones: stageCones.map((c) => ({
+            x: Number(c.mesh.position.x.toFixed(3)),
+            z: Number(c.mesh.position.z.toFixed(3)),
+        })),
+        props: physicsProps.map((p) => ({
+            type: p.type,
+            x: Number(p.mesh.position.x.toFixed(3)),
+            y: Number(p.mesh.position.y.toFixed(3)),
+            z: Number(p.mesh.position.z.toFixed(3)),
+            mass: p.mass,
+            scale: p.scale,
+        })),
+        stamps: terrainStamps.map((s) => ({
+            height: s.height,
+            points: (s.points || []).map((pt) => ({
+                x: Number(pt.x.toFixed(3)),
+                z: Number(pt.z.toFixed(3)),
+            })),
+        })),
+    };
+}
+
+function saveMapToLocal() {
+    try {
+        const map = serializeMap();
+        const list = readMapLibrary();
+        list.unshift({
+            id: map.savedAt,
+            savedAt: map.savedAt,
+            map,
+        });
+        writeMapLibrary(list);
+        addLog(t('logMapSaved', { when: formatMapWhen(map.savedAt) }));
+        return true;
+    } catch (err) {
+        addLog(t('logMapBad'));
+        return false;
+    }
+}
+
+function applyMapData(data) {
+    if (!data || data.version !== 1) {
+        addLog(t('logMapBad'));
+        return false;
+    }
+
+    animating = 0;
+    navState.mode = 'IDLE';
+    deselectProp();
+    setDrawTerrainMode(0);
+    clearAllWaypoints();
+    clearPhysicsProps();
+    clearAllTerrainStamps();
+
+    if (Number.isFinite(data.arenaM)) {
+        setTerrainSize(data.arenaM);
+        const slider = document.getElementById('terrainSize');
+        if (slider) slider.value = String(PLANE_SIZE);
+        updateTerrainUi();
+    }
+
+    if (data.robot) {
+        robot.position.set(
+            data.robot.x || 0,
+            data.robot.y || 0,
+            data.robot.z || 0,
+        );
+        robot.rotation.set(0, data.robot.heading || 0, 0);
+        robotVy = 0;
+        syncRobotPhysicsBody();
+    }
+
+    if (Array.isArray(data.cones)) {
+        for (let i = 0; i < stageCones.length && i < data.cones.length; i++) {
+            const c = clampToArena(data.cones[i].x, data.cones[i].z);
+            stageCones[i].mesh.position.x = c.x;
+            stageCones[i].mesh.position.z = c.z;
+            stageCones[i].mesh.position.y = CONE_HALF_H;
+            stageCones[i].body.position.set(c.x, CONE_HALF_H, c.z);
+        }
+    }
+
+    if (Array.isArray(data.waypoints)) {
+        for (let i = 0; i < data.waypoints.length; i++) {
+            const wp = data.waypoints[i];
+            placeWaypointAt(wp.x, wp.z, 0.5);
+        }
+        updateWaypointColors();
+        updatePathFlow();
+    }
+
+    if (Array.isArray(data.props)) {
+        for (let i = 0; i < data.props.length; i++) {
+            const p = data.props[i];
+            if (!p || !PROP_HALF_HEIGHT[p.type]) continue;
+            const clamped = clampToArena(p.x, p.z);
+            createPhysicsProp(
+                p.type,
+                clamped.x,
+                Number.isFinite(p.y) ? p.y : (PROP_HALF_HEIGHT[p.type] * (p.scale || 1) + 0.02),
+                clamped.z,
+                p.mass,
+                p.scale,
+            );
+        }
+    }
+
+    if (Array.isArray(data.stamps)) {
+        for (let i = 0; i < data.stamps.length; i++) {
+            const s = data.stamps[i];
+            if (!s?.points || s.points.length < 3) continue;
+            const pts = s.points.map((pt) => ({ x: pt.x, z: pt.z }));
+            const stamp = createTerrainStamp(pts);
+            if (Number.isFinite(s.height) && s.height !== 0) {
+                setStampHeight(stamp, s.height);
+            }
+        }
+        selectedStamp = null;
+        updateStampHeightUi();
+    }
+
+    updateModeUi();
+    addLog(t('logMapLoaded', { when: formatMapWhen(data.savedAt) }));
+    return true;
+}
+
+function loadMapById(id) {
+    const list = readMapLibrary();
+    const entry = list.find((item) => item.id === id);
+    if (!entry?.map) {
+        addLog(t('logMapBad'));
+        return false;
+    }
+    return applyMapData(entry.map);
+}
+
+function deleteMapById(id) {
+    const list = readMapLibrary();
+    const entry = list.find((item) => item.id === id);
+    const next = list.filter((item) => item.id !== id);
+    writeMapLibrary(next);
+    if (entry) addLog(t('logMapDeleted', { when: formatMapWhen(entry.savedAt) }));
+    return next;
+}
+
+function openMapPicker() {
+    const dialog = document.getElementById('mapPickerDialog');
+    const listEl = document.getElementById('mapPickerList');
+    if (!dialog || !listEl) return;
+
+    const list = readMapLibrary();
+    listEl.innerHTML = '';
+
+    if (list.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'map-picker-empty';
+        empty.textContent = t('mapPickerEmpty');
+        listEl.appendChild(empty);
+    } else {
+        list.forEach((entry) => {
+            const li = document.createElement('li');
+            li.className = 'map-picker-item';
+            const summary = mapEntrySummary(entry.map);
+            const when = formatMapWhen(entry.savedAt);
+            li.innerHTML = `
+              <div class="map-picker-main">
+                <strong>${when}</strong>
+                <span>${t('mapPickerMeta', summary)}</span>
+              </div>
+              <div class="map-picker-actions">
+                <button type="button" class="btn btn-primary map-load-btn" data-id="${entry.id}">${t('mapPickerLoad')}</button>
+                <button type="button" class="btn btn-muted map-del-btn" data-id="${entry.id}">${t('mapPickerDelete')}</button>
+              </div>
+            `;
+            listEl.appendChild(li);
+        });
+    }
+
+    if (typeof dialog.showModal === 'function') {
+        if (!dialog.open) dialog.showModal();
+    } else {
+        dialog.setAttribute('open', '');
+    }
+}
+
+function closeMapPicker() {
+    const dialog = document.getElementById('mapPickerDialog');
+    if (!dialog) return;
+    if (typeof dialog.close === 'function') dialog.close();
+    else dialog.removeAttribute('open');
+}
+
+function loadMapFromLocal() {
+    const list = readMapLibrary();
+    if (list.length === 0) {
+        addLog(t('logMapMissing'));
+        return false;
+    }
+    openMapPicker();
+    return true;
+}
+
+const _robotPhysQ = new THREE.Quaternion();
 function syncRobotPhysicsBody() {
     robotBody.position.set(robot.position.x, robot.position.y, robot.position.z);
-    robotBody.quaternion.setFromEuler(0, robot.rotation.y, 0);
+    _robotPhysQ.setFromEuler(robot.rotation);
+    robotBody.quaternion.set(_robotPhysQ.x, _robotPhysQ.y, _robotPhysQ.z, _robotPhysQ.w);
 }
 
 function stepPhysics(dt) {
@@ -1037,8 +1383,36 @@ function terrainHeightAt(x, z) {
     return y;
 }
 
+function worldWheelXZ(px, pz, yaw, lx, lz) {
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    // Local +Z forward, +X right (matches applyMotion).
+    return {
+        x: px + lx * cos + lz * sin,
+        z: pz - lx * sin + lz * cos,
+    };
+}
+
+function sampleWheelTerrain(px, pz, yaw) {
+    const out = [];
+    for (let i = 0; i < wheelPositions.length; i++) {
+        const lx = wheelPositions[i][0];
+        const lz = wheelPositions[i][2];
+        const w = worldWheelXZ(px, pz, yaw, lx, lz);
+        out.push({ lx, lz, h: terrainHeightAt(w.x, w.z) });
+    }
+    return out;
+}
+
 function roverTerrainHeight() {
-    return terrainHeightAt(robot.position.x, robot.position.z);
+    const samples = sampleWheelTerrain(robot.position.x, robot.position.z, robot.rotation.y);
+    let sum = 0;
+    for (let i = 0; i < samples.length; i++) sum += samples[i].h;
+    return sum / samples.length;
+}
+
+function clampRoverTilt(a) {
+    return Math.max(-ROVER_MAX_TILT, Math.min(ROVER_MAX_TILT, a));
 }
 
 function bodyInTerrainCut(body) {
@@ -1451,18 +1825,80 @@ function setStampHeight(stamp, height) {
 }
 
 function applyRoverTerrain(dt) {
-    const floorY = roverTerrainHeight();
-    if (robot.position.y > floorY + 0.04) {
+    const yaw = robot.rotation.y;
+    const samples = sampleWheelTerrain(robot.position.x, robot.position.z, yaw);
+
+    let hF = 0;
+    let hR = 0;
+    let hL = 0;
+    let hRt = 0;
+    let nF = 0;
+    let nR = 0;
+    let nL = 0;
+    let nRt = 0;
+    let hSum = 0;
+    for (let i = 0; i < samples.length; i++) {
+        const s = samples[i];
+        hSum += s.h;
+        if (s.lz > 0) {
+            hF += s.h;
+            nF += 1;
+        } else {
+            hR += s.h;
+            nR += 1;
+        }
+        if (s.lx < 0) {
+            hL += s.h;
+            nL += 1;
+        } else {
+            hRt += s.h;
+            nRt += 1;
+        }
+    }
+    hF /= Math.max(1, nF);
+    hR /= Math.max(1, nR);
+    hL /= Math.max(1, nL);
+    hRt /= Math.max(1, nRt);
+    const supportY = hSum / samples.length;
+
+    const wheelbase = Math.abs(wheelPositions[0][2] - wheelPositions[2][2]);
+    const track = Math.abs(wheelPositions[0][0] - wheelPositions[1][0]);
+    // Facing +Z, YXZ: +pitch (x) lowers the nose; climb (front higher) → negative x.
+    // +roll (z) raises the right side; left higher → negative z.
+    const targetPitch = clampRoverTilt(-Math.atan2(hF - hR, wheelbase));
+    const targetRoll = clampRoverTilt(Math.atan2(hRt - hL, track));
+
+    if (robot.position.y > supportY + 0.04) {
         robotVy += ROVER_GRAVITY * dt;
         robot.position.y += robotVy * dt;
-        if (robot.position.y <= floorY) {
-            robot.position.y = floorY;
+        if (robot.position.y <= supportY) {
+            robot.position.y = supportY;
             robotVy = 0;
         }
     } else {
-        robot.position.y = floorY;
+        robot.position.y = supportY;
         robotVy = 0;
     }
+
+    // Follow terrain attitude while supported (keep last tilt briefly in the air).
+    if (robotVy === 0 || robot.position.y <= supportY + 0.06) {
+        const k = Math.min(1, ROVER_TILT_RATE * dt);
+        robot.rotation.x += (targetPitch - robot.rotation.x) * k;
+        robot.rotation.z += (targetRoll - robot.rotation.z) * k;
+    }
+
+    // Independent wheel travel so contacts sit on the ground while the body rides the plane.
+    const pitch = robot.rotation.x;
+    const roll = robot.rotation.z;
+    for (let i = 0; i < wheels.length; i++) {
+        const s = samples[i];
+        const planeY = supportY + s.lx * Math.sin(roll) - s.lz * Math.sin(pitch);
+        let travel = s.h - planeY;
+        if (travel > ROVER_SUSP_TRAVEL) travel = ROVER_SUSP_TRAVEL;
+        if (travel < -ROVER_SUSP_TRAVEL) travel = -ROVER_SUSP_TRAVEL;
+        wheels[i].position.y = WHEEL_AXLE_Y + travel;
+    }
+
     robot.updateMatrixWorld();
 }
 
@@ -1804,27 +2240,55 @@ function getRobotSensorOrigin(target = new THREE.Vector3()) {
     return target;
 }
 
+const propLaunchCooldown = new WeakMap();
+
 function applyRobotPushImpulse(dt) {
     if (dt <= 0 || !animating) return;
-    const robotBox = getRobotCollisionBox();
-    const forward = new THREE.Vector3(0, 0, 1)
-        .applyMatrix4(new THREE.Matrix4().extractRotation(robot.matrixWorld))
-        .normalize();
-    // Stronger shove when hit-test is off — rover drives into props on purpose.
+    const robotBox = getRobotCollisionBox().expandByScalar(1.05);
+    const rot = new THREE.Matrix4().extractRotation(robot.matrixWorld);
+    const forward = new THREE.Vector3(0, 0, 1).applyMatrix4(rot).normalize();
+    const right = new THREE.Vector3(1, 0, 0).applyMatrix4(rot).normalize();
     const hitOff = !sensorConfig.hitTest;
-    const pushSpeed = hitOff ? 7 : 4;
+    // Angry Birds punch — hard launch on contact, not a tiny per-frame nudge.
+    const launchBase = hitOff ? 22 : 16;
+    const now = performance.now();
 
-    physicsProps.forEach(({ mesh, body, mass }) => {
+    physicsProps.forEach(({ mesh, body, mass, scale }) => {
         if (mass >= HEAVY_PROP_KG) return;
         const propBox = new THREE.Box3().setFromObject(mesh);
-        if (!robotBox.intersectsBox(propBox)) return;
+        if (!robotBox.intersectsBox(propBox)) {
+            propLaunchCooldown.delete(body);
+            return;
+        }
 
-        const impulse = pushSpeed * (8 / Math.sqrt(mass));
-        body.velocity.x += forward.x * impulse * dt * 3;
-        body.velocity.z += forward.z * impulse * dt * 3;
-        body.velocity.y += impulse * dt * 0.8;
-        body.angularVelocity.x += (Math.random() - 0.5) * impulse * dt * 2;
-        body.angularVelocity.z += (Math.random() - 0.5) * impulse * dt * 2;
+        const propCenter = new THREE.Vector3();
+        propBox.getCenter(propCenter);
+        const toProp = propCenter.clone().sub(robot.position);
+        toProp.y = 0;
+        const dist = Math.max(0.05, toProp.length());
+        const falloff = Math.max(0.35, 1 - dist / 4.0);
+        const side = Math.sign(toProp.dot(right)) || (Math.random() < 0.5 ? -1 : 1);
+        const fx = forward.x * 0.75 + right.x * side * 0.65 + toProp.x / dist * 0.35;
+        const fz = forward.z * 0.75 + right.z * side * 0.65 + toProp.z / dist * 0.35;
+        const len = Math.hypot(fx, fz) || 1;
+        const nx = fx / len;
+        const nz = fz / len;
+        const launch = launchBase * (10 / Math.sqrt(Math.max(mass, 0.8))) * falloff;
+        const last = propLaunchCooldown.get(body) || 0;
+        const freshHit = (now - last) > 140;
+
+        if (freshHit) {
+            propLaunchCooldown.set(body, now);
+            body.velocity.x = nx * launch;
+            body.velocity.z = nz * launch;
+            body.velocity.y = Math.max(4.5, launch * 0.55);
+            const spin = launch * (0.45 + (scale || 1) * 0.15);
+            body.angularVelocity.set(side * spin, (Math.random() - 0.5) * spin, -side * spin * 0.7);
+        } else {
+            body.velocity.x += nx * launch * dt * 10;
+            body.velocity.z += nz * launch * dt * 10;
+            body.velocity.y += launch * dt * 3;
+        }
         body.wakeUp();
     });
 }
@@ -2766,7 +3230,7 @@ interactionCanvas().addEventListener('pointercancel', onPointerCancel);
 interactionCanvas().style.touchAction = 'none';
 
 // 🧠 Navigation — sensors + 3 algorithms (see nav.js)
-let activeAlgo = 'pure_pursuit';
+let activeAlgo = 'bug2';
 let navState = {
     mode: 'IDLE',
     bugSide: 1,
@@ -3170,7 +3634,7 @@ function copyCustomSetup() {
         navigator.clipboard.writeText(text).then(() => {
             if (!btn) return;
             btn.textContent = t('customSetupCopied');
-            window.setTimeout(() => { btn.textContent = t('copyLogBtn'); }, 1500);
+            window.setTimeout(() => { btn.textContent = t('copyBtn'); }, 1500);
         });
     }
 }
@@ -3257,11 +3721,10 @@ function applyMotion(v, omega, dt) {
     const actualOmega = dt > 0 ? (robot.rotation.y - yaw0) / dt : 0;
     const leftLinear = actualLinear + actualOmega * ROBOT_COLLISION.halfWidth;
     const rightLinear = actualLinear - actualOmega * ROBOT_COLLISION.halfWidth;
-    const wheelRadius = 0.5;
-    wheels[0].rotation.x -= leftLinear * dt / wheelRadius;
-    wheels[2].rotation.x -= leftLinear * dt / wheelRadius;
-    wheels[1].rotation.x -= rightLinear * dt / wheelRadius;
-    wheels[3].rotation.x -= rightLinear * dt / wheelRadius;
+    wheels[0].rotation.x -= leftLinear * dt / WHEEL_RADIUS;
+    wheels[2].rotation.x -= leftLinear * dt / WHEEL_RADIUS;
+    wheels[1].rotation.x -= rightLinear * dt / WHEEL_RADIUS;
+    wheels[3].rotation.x -= rightLinear * dt / WHEEL_RADIUS;
 
     if (blocked && sensorConfig.hitTest && v > 0) triggerSpringBumper();
     if (requestedDistance > 0.01 && actualDistance < requestedDistance * 0.10) return 1;
@@ -3297,8 +3760,14 @@ function waypointReached(target) {
 }
 
 function resetNavForWaypoint() {
+    // Fresh M-line for this segment (robot pose → next waypoint).
+    missionStart = { x: robot.position.x, z: robot.position.z };
     navState.mode = 'TRACK';
     navState.bugStartDist = 0;
+    navState.bugFollowDist = 0;
+    navState.bugFlipped = 0;
+    navState.bugLastX = NaN;
+    navState.bugLastZ = NaN;
     navState.roseMode = 0;
     navState.roseDistance = 0;
     navState.roseStartX = robot.position.x;
@@ -3341,6 +3810,7 @@ function checkWaypointMission() {
     if (reach.ok) {
         if (!waypointsPassed[pathIndex]) {
             waypointsPassed[pathIndex] = 1;
+            recordMissionAttempt('waypoint_passed', `wp${pathIndex}`);
             addLog(t('logPassed', { index: pathIndex, dist: reach.dist.toFixed(2) }));
             if (waypointMarkers[pathIndex]) {
                 waypointMarkers[pathIndex].material.color.setHex(0x00ffcc);
@@ -3363,9 +3833,86 @@ function checkWaypointMission() {
 // 📋 Telemetry log
 const robotLog = [];
 const missionTelemetry = [];
+const missionAttempts = [];
+const poseTrail = [];
 let lastTelemetryAt = -2.00;
+let lastAttemptMode = '';
 window.missionTelemetry = missionTelemetry;
-const logList = document.getElementById('logList');
+
+function recordMissionAttempt(kind, detail = '') {
+    const t = Number.isFinite(clock?.getElapsedTime?.())
+        ? clock.getElapsedTime()
+        : 0;
+    missionAttempts.push({
+        t: Number(t.toFixed(2)),
+        kind,
+        detail,
+        x: Number(robot.position.x.toFixed(2)),
+        z: Number(robot.position.z.toFixed(2)),
+        wp: pathIndex,
+        mode: navState.mode,
+    });
+    if (missionAttempts.length > 80) missionAttempts.shift();
+}
+
+function recordPoseTrail() {
+    if (!animating) return;
+    const last = poseTrail[poseTrail.length - 1];
+    const x = robot.position.x;
+    const z = robot.position.z;
+    if (last && Math.hypot(x - last.x, z - last.z) < 0.45) return;
+    poseTrail.push({
+        t: Number(clock.getElapsedTime().toFixed(2)),
+        x: Number(x.toFixed(2)),
+        z: Number(z.toFixed(2)),
+        wp: pathIndex,
+        mode: navState.mode,
+    });
+    if (poseTrail.length > 60) poseTrail.shift();
+}
+
+function buildMapSnapshot() {
+    return {
+        arenaM: PLANE_SIZE,
+        waypoints: waypoints.map((wp, i) => ({
+            i,
+            x: wp.x,
+            z: wp.z,
+            status: waypointsPassed[i] === 1
+                ? 'passed'
+                : (waypointsPassed[i] === 'skipped' ? 'skipped'
+                    : (i === pathIndex ? 'current' : 'pending')),
+        })),
+        cones: stageCones.map((c, i) => ({
+            i,
+            x: Number(c.mesh.position.x.toFixed(2)),
+            z: Number(c.mesh.position.z.toFixed(2)),
+        })),
+        props: physicsProps.map((p, i) => ({
+            i,
+            kind: p.type,
+            x: Number(p.mesh.position.x.toFixed(2)),
+            y: Number(p.mesh.position.y.toFixed(2)),
+            z: Number(p.mesh.position.z.toFixed(2)),
+            mass: p.mass,
+        })),
+        terrainStamps: terrainStamps.map((s, i) => ({
+            i,
+            height: s.height,
+            points: (s.points || []).length,
+        })),
+        mLine: {
+            start: {
+                x: Number(missionStart.x.toFixed(2)),
+                z: Number(missionStart.z.toFixed(2)),
+            },
+            goal: waypoints[pathIndex]
+                ? { x: waypoints[pathIndex].x, z: waypoints[pathIndex].z }
+                : null,
+        },
+    };
+}
+const MAX_ROBOT_LOG = 120;
 
 function collectTelemetryObjects() {
     const list = [];
@@ -3410,34 +3957,8 @@ function addLog(message) {
     const pos = `[${robot.position.x.toFixed(1)}, ${robot.position.z.toFixed(1)}]`;
     const fullMessage = `${time}s ${pos}: ${message}`;
     robotLog.push({ time, pos, message });
-    
-    const li = document.createElement('li');
-    li.innerText = fullMessage;
-    logList.appendChild(li);
-    if (logList) logList.scrollTop = logList.scrollHeight;
+    if (robotLog.length > MAX_ROBOT_LOG) robotLog.shift();
     console.log(`[ROBOT LOG] ${fullMessage}`);
-}
-
-function flashCopyBtn() {
-    const btn = document.getElementById('copyLogBtn');
-    if (!btn) return;
-    btn.textContent = t('logCopied');
-    window.setTimeout(() => {
-        btn.textContent = t('copyLogBtn');
-    }, 1500);
-}
-
-function copyTelemetryLog() {
-    const lines = [];
-    for (let i = 0; i < robotLog.length; i++) {
-        const row = robotLog[i];
-        lines.push(row.time + 's ' + row.pos + ': ' + row.message);
-    }
-    const text = lines.join('\n');
-    if (!text) return;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(flashCopyBtn);
-    }
 }
 
 const TELEMETRY_CSV_HEADER = 't,algorithm,wp_index,wp_x,wp_z,wp_distance,robot_x,robot_z,heading,v,omega,blocked,forwardClear,nearest';
@@ -3513,8 +4034,6 @@ function exportTelemetryCsv() {
     );
 }
 
-const copyLogBtn = document.getElementById('copyLogBtn');
-if (copyLogBtn) copyLogBtn.addEventListener('click', copyTelemetryLog);
 const exportTelemetryJsonBtn = document.getElementById('exportTelemetryJson');
 if (exportTelemetryJsonBtn) exportTelemetryJsonBtn.addEventListener('click', exportTelemetryJson);
 const exportTelemetryCsvBtn = document.getElementById('exportTelemetryCsv');
@@ -3528,6 +4047,11 @@ function buildErrorReport() {
     const waypoint = waypoints[pathIndex] || null;
     const navDebug = {
         mode: navState.mode,
+        bugSide: navState.bugSide,
+        bugFollowDist: Number.isFinite(navState.bugFollowDist)
+            ? Number(navState.bugFollowDist.toFixed(2))
+            : 0,
+        bugFlipped: navState.bugFlipped ? 1 : 0,
         roseMode: navState.roseMode,
         forceRose: navState.forceRose,
         recoveryPhase: navState.recoveryPhase || null,
@@ -3535,7 +4059,7 @@ function buildErrorReport() {
             ? Math.max(0, Date.now() / 1000 - navState.stuckSince).toFixed(2)
             : null,
     };
-    const logLines = robotLog.slice(-40).map(
+    const logLines = robotLog.map(
         (row) => `${row.time}s ${row.pos}: ${row.message}`,
     );
     return [
@@ -3547,6 +4071,9 @@ function buildErrorReport() {
         `Target: ${waypoint ? `x=${waypoint.x} z=${waypoint.z}` : 'none'}`,
         `Sensors: ${JSON.stringify(sensorConfig)}`,
         `Navigation: ${JSON.stringify(navDebug)}`,
+        `Map:\n${JSON.stringify(buildMapSnapshot(), null, 2)}`,
+        `Attempts (${missionAttempts.length}):\n${JSON.stringify(missionAttempts.slice(-30), null, 2)}`,
+        `Pose trail (${poseTrail.length}):\n${JSON.stringify(poseTrail.slice(-40), null, 2)}`,
         `Runtime errors:\n${runtimeErrors.length ? runtimeErrors.join('\n') : 'none'}`,
         `Recent robot log:\n${logLines.length ? logLines.join('\n') : 'none'}`,
         `Recent telemetry:\n${JSON.stringify(missionTelemetry.slice(-3), null, 2)}`,
@@ -3676,6 +4203,10 @@ document.getElementById('startBtn').addEventListener('click', () => {
         mode: 'TRACK',
         bugSide: 1,
         bugStartDist: 0,
+        bugFollowDist: 0,
+        bugFlipped: 0,
+        bugLastX: NaN,
+        bugLastZ: NaN,
         lastLogAt: 0,
         roseMode: 0,
         roseSide: 1,
@@ -3691,16 +4222,20 @@ document.getElementById('startBtn').addEventListener('click', () => {
     waypointsPassed = new Array(waypoints.length).fill(0);
     clearDraggableAuras();
     setDrawTerrainMode(0);
-    if (moveObjectsEl) {
-        moveObjectsEl.checked = false;
-        moveObjectsMode = 0;
-    }
+    mode = 'waypoints';
+    setMoveObjectsMode(0);
+    document.querySelectorAll('#modeGroup .toggle-btn').forEach((b) => {
+        b.classList.toggle('active', b.dataset.mode === 'waypoints');
+    });
     syncCameraControls();
     clock.start();
-    logList.innerHTML = '';
     robotLog.length = 0;
     missionTelemetry.length = 0;
+    missionAttempts.length = 0;
+    poseTrail.length = 0;
+    lastAttemptMode = '';
     lastTelemetryAt = -2.00;
+    recordMissionAttempt('mission_start', activeAlgo);
     addLog(t('logInit', {
         algo: algoDisplayName(activeAlgo),
         sensors: sensorListLabel() || 'none',
@@ -3760,14 +4295,15 @@ let selectedObjectType = 'sphere';
 const moveObjectsEl = document.getElementById('moveObjectsMode');
 if (moveObjectsEl) {
     moveObjectsEl.addEventListener('change', () => {
-        moveObjectsMode = moveObjectsEl.checked ? 1 : 0;
+        setMoveObjectsMode(moveObjectsEl.checked ? 1 : 0);
         if (moveObjectsMode) {
-            setDrawTerrainMode(0);
-            setRobotSelected(0);
-        } else {
-            deselectProp();
+            mode = 'objects';
+        } else if (mode === 'objects') {
+            mode = 'waypoints';
         }
-        syncCameraControls();
+        document.querySelectorAll('#modeGroup .toggle-btn').forEach((b) => {
+            b.classList.toggle('active', b.dataset.mode === mode);
+        });
         updateModeUi();
     });
 }
@@ -3937,10 +4473,24 @@ document.querySelectorAll('[data-algo-help]').forEach((btn) => {
 document.getElementById('closeAlgoHelpBtn')?.addEventListener('click', closeAlgoHelp);
 document.getElementById('closeAlgoHelpBottomBtn')?.addEventListener('click', closeAlgoHelp);
 
+function setMoveObjectsMode(on) {
+    moveObjectsMode = on ? 1 : 0;
+    if (moveObjectsEl) moveObjectsEl.checked = !!on;
+    if (moveObjectsMode) {
+        setDrawTerrainMode(0);
+        setRobotSelected(0);
+    } else {
+        deselectProp();
+    }
+    syncCameraControls();
+}
+
 document.querySelectorAll('#modeGroup .toggle-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
         mode = btn.dataset.mode;
         setDrawTerrainMode(0);
+        // Move Objects mode = camera lock + drag props (replaces the old checkbox).
+        setMoveObjectsMode(mode === 'objects' ? 1 : 0);
         updateModeUi();
     });
 });
@@ -4010,6 +4560,31 @@ if (scaleSlider) {
 
 document.getElementById('clearObjectsBtn').addEventListener('click', () => {
     clearPhysicsProps();
+});
+
+document.getElementById('saveMapBtn')?.addEventListener('click', () => {
+    saveMapToLocal();
+});
+
+document.getElementById('loadMapBtn')?.addEventListener('click', () => {
+    if (animating) return;
+    loadMapFromLocal();
+});
+
+document.getElementById('closeMapPickerBtn')?.addEventListener('click', closeMapPicker);
+document.getElementById('closeMapPickerBottomBtn')?.addEventListener('click', closeMapPicker);
+document.getElementById('mapPickerList')?.addEventListener('click', (e) => {
+    const loadBtn = e.target.closest('.map-load-btn');
+    const delBtn = e.target.closest('.map-del-btn');
+    if (loadBtn) {
+        const id = loadBtn.dataset.id;
+        if (loadMapById(id)) closeMapPicker();
+        return;
+    }
+    if (delBtn) {
+        deleteMapById(delBtn.dataset.id);
+        openMapPicker();
+    }
 });
 
 const drawTerrainBtn = document.getElementById('drawTerrainBtn');
@@ -4108,14 +4683,22 @@ function animate() {
             missionStart,
         );
 
+        if (navState.mode !== lastAttemptMode) {
+            recordMissionAttempt('mode', `${lastAttemptMode || 'none'}→${navState.mode}`);
+            lastAttemptMode = navState.mode;
+        }
+        recordPoseTrail();
+
         if (cmd.recovery && navState.lastRecoveryLog !== cmd.recovery) {
             navState.lastRecoveryLog = cmd.recovery;
+            recordMissionAttempt('recovery', cmd.recovery);
             addLog(t('logRecovery', { phase: cmd.recovery }));
         } else if (!cmd.recovery) {
             navState.lastRecoveryLog = '';
         }
 
         if (cmd.skip) {
+            recordMissionAttempt('skip_waypoint', `wp${pathIndex}`);
             skipUnreachableWaypoint();
         }
         if (!cmd.skip) {

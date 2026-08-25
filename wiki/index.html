@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wiki — Robot Path Follower Tester</title>
+  <style>
+    :root {
+      --bg: #0e1216;
+      --panel: #161b22;
+      --text: #e6edf3;
+      --muted: #9aa7b5;
+      --accent: #3dceb0;
+      --border: #2a333d;
+      --warn: #e8a54b;
+      --code: #0a0e12;
+      --link: #7ad4ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 16px/1.55 "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #1a2830 0%, var(--bg) 55%);
+      color: var(--text);
+    }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: rgba(14, 18, 22, 0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+    }
+    .brand { font-weight: 700; letter-spacing: 0.02em; }
+    .brand span { color: var(--accent); }
+    .lang { display: flex; gap: 6px; }
+    .lang button {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .lang button.active {
+      background: var(--accent);
+      color: #061410;
+      border-color: var(--accent);
+    }
+    .wrap {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+    }
+    nav.toc {
+      display: grid;
+      gap: 8px;
+      margin: 18px 0 28px;
+      padding: 14px 16px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    nav.toc a { color: var(--link); text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    h1 { font-size: 1.85rem; margin: 0 0 8px; }
+    h2 {
+      margin: 36px 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      color: var(--accent);
+      font-size: 1.25rem;
+    }
+    h3 { margin: 22px 0 8px; font-size: 1.05rem; }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    .lead { font-size: 1.05rem; color: var(--muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #1c242c; color: var(--accent); }
+    code, pre {
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      font-size: 0.88rem;
+    }
+    code {
+      background: var(--code);
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      background: var(--code);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      color: #d7ffe8;
+    }
+    .faq details {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 8px 0;
+    }
+    .faq summary {
+      cursor: pointer;
+      font-weight: 650;
+      color: var(--warn);
+    }
+    .faq details[open] summary { margin-bottom: 8px; }
+    .footer {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .footer a { color: var(--link); }
+    [data-lang="es"] { display: none; }
+    html[lang="es"] [data-lang="en"] { display: none !important; }
+    html[lang="es"] [data-lang="es"] { display: revert; }
+    html[lang="en"] [data-lang="es"] { display: none !important; }
+    html[lang="en"] [data-lang="en"] { display: revert; }
+    html[lang="es"] nav.toc a[data-lang="es"],
+    html[lang="en"] nav.toc a[data-lang="en"] { display: block; }
+    html[lang="es"] summary[data-lang="es"],
+    html[lang="en"] summary[data-lang="en"],
+    html[lang="es"] span[data-lang="es"],
+    html[lang="en"] span[data-lang="en"],
+    html[lang="es"] a[data-lang="es"]:not(nav.toc a),
+    html[lang="en"] a[data-lang="en"]:not(nav.toc a) { display: inline; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div class="brand">🤖🛞 <span>Robot Path Follower Tester</span> · Wiki</div>
+    <div class="lang" role="group" aria-label="Language">
+      <button type="button" id="btnEn" class="active">EN</button>
+      <button type="button" id="btnEs">ES</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div data-lang="en">
+      <h1>Project wiki</h1>
+      <p class="lead">How the sim works, which algorithms it ships, how to plug in your own code, and where to edit the project.</p>
+    </div>
+    <div data-lang="es">
+      <h1>Wiki del proyecto</h1>
+      <p class="lead">Cómo funciona el sim, qué algoritmos trae, cómo meter tu propio código y dónde editar el proyecto.</p>
+    </div>
+
+    <nav class="toc" aria-label="Contents">
+      <a data-lang="en" href="#overview">1. Overview</a>
+      <a data-lang="es" href="#overview">1. Resumen</a>
+      <a data-lang="en" href="#algorithms">2. Algorithms</a>
+      <a data-lang="es" href="#algorithms">2. Algoritmos</a>
+      <a data-lang="en" href="#how">3. How the software works</a>
+      <a data-lang="es" href="#how">3. Cómo funciona el software</a>
+      <a data-lang="en" href="#sensors">4. Sensors</a>
+      <a data-lang="es" href="#sensors">4. Sensores</a>
+      <a data-lang="en" href="#custom">5. Your own algorithms (Custom JS)</a>
+      <a data-lang="es" href="#custom">5. Tus propios algoritmos (Custom JS)</a>
+      <a data-lang="en" href="#edit">6. Edit the project</a>
+      <a data-lang="es" href="#edit">6. Editar el proyecto</a>
+      <a data-lang="en" href="#faq">7. FAQ</a>
+      <a data-lang="es" href="#faq">7. Preguntas frecuentes</a>
+    </nav>
+
+    <!-- Overview -->
+    <section id="overview">
+      <h2 data-lang="en">1. Overview</h2>
+      <h2 data-lang="es">1. Resumen</h2>
+      <div data-lang="en">
+        <p><strong>Robot Path Follower Tester</strong> is a browser sandbox for a <strong>4-wheel differential-drive rover</strong>. Place waypoints, choose a planner, and watch it drive in 3D — no ROS, no Gazebo.</p>
+        <pre>npm install
+npm run dev      # http://localhost:5173/
+npm run build
+node scripts/smoke_sim.mjs</pre>
+        <p>Core files stay portable: <code>index.html</code>, <code>main.js</code>, <code>nav.js</code>, <code>style.css</code>.</p>
+      </div>
+      <div data-lang="es">
+        <p><strong>Robot Path Follower Tester</strong> es un sandbox en el navegador para un <strong>rover diferencial de 4 ruedas</strong>. Colocas waypoints, eliges un planificador y lo ves circular en 3D — sin ROS ni Gazebo.</p>
+        <pre>npm install
+npm run dev      # http://localhost:5173/
+npm run build
+node scripts/smoke_sim.mjs</pre>
+        <p>El núcleo es portable: <code>index.html</code>, <code>main.js</code>, <code>nav.js</code>, <code>style.css</code>.</p>
+      </div>
+    </section>
+
+    <!-- Algorithms -->
+    <section id="algorithms">
+      <h2 data-lang="en">2. Algorithms</h2>
+      <h2 data-lang="es">2. Algoritmos</h2>
+      <div data-lang="en">
+        <p>Built-in modes live in <code>nav.js</code>. Pick one in the left panel (Bug2 is the default).</p>
+        <table>
+          <thead><tr><th>Mode</th><th>Id</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Bug2 (M-line)</strong></td>
+              <td><code>bug2</code></td>
+              <td>Drives along the M-line toward the goal. When blocked, follows the obstacle boundary until it can leave back toward the goal.</td>
+            </tr>
+            <tr>
+              <td><strong>Pure Pursuit</strong></td>
+              <td><code>pure_pursuit</code></td>
+              <td>Steers toward a lookahead point on the path; shared safety can nudge around nearby obstacles.</td>
+            </tr>
+            <tr>
+              <td><strong>VFH</strong></td>
+              <td><code>vfh</code></td>
+              <td>Builds a local histogram of obstacle sectors and picks a clear steering valley toward the waypoint.</td>
+            </tr>
+            <tr>
+              <td><strong>Custom (JS)</strong></td>
+              <td><code>custom</code></td>
+              <td>Your <code>loop()</code> sets <code>v</code> and <code>omega</code> from live robot/sensor variables.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>All modes share the same fused sensor reading and a safety / recovery layer (stuck detection, go-around).</p>
+      </div>
+      <div data-lang="es">
+        <p>Los modos van en <code>nav.js</code>. Se eligen en el panel izquierdo (Bug2 es el default).</p>
+        <table>
+          <thead><tr><th>Modo</th><th>Id</th><th>Qué hace</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><strong>Bug2 (M-line)</strong></td>
+              <td><code>bug2</code></td>
+              <td>Sigue la M-line hacia la meta. Si hay obstáculo, sigue el contorno hasta poder salir otra vez hacia la meta.</td>
+            </tr>
+            <tr>
+              <td><strong>Pure Pursuit</strong></td>
+              <td><code>pure_pursuit</code></td>
+              <td>Apunta a un punto de lookahead en la ruta; la capa de seguridad puede rodear obstáculos cercanos.</td>
+            </tr>
+            <tr>
+              <td><strong>VFH</strong></td>
+              <td><code>vfh</code></td>
+              <td>Arma un histograma local de sectores con obstáculos y elige un valle libre hacia el waypoint.</td>
+            </tr>
+            <tr>
+              <td><strong>Custom (JS)</strong></td>
+              <td><code>custom</code></td>
+              <td>Tu <code>loop()</code> asigna <code>v</code> y <code>omega</code> con variables del robot/sensores en vivo.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>Todos comparten la misma lectura fusionada de sensores y una capa de seguridad / recuperación (atasco, rodeo).</p>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how">
+      <h2 data-lang="en">3. How the software works</h2>
+      <h2 data-lang="es">3. Cómo funciona el software</h2>
+      <div data-lang="en">
+        <h3>UI layout</h3>
+        <table>
+          <thead><tr><th>Panel</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Left</strong></td><td>Sensors, algorithm, Start / Reset, Error Report, Move Objects</td></tr>
+            <tr><td><strong>Center</strong></td><td>3D arena. Short click = waypoint. Orbit camera. Custom JS pad overlays here.</td></tr>
+            <tr><td><strong>Right</strong></td><td>Drag props, save/load maps, draw terrain, prop weight/scale</td></tr>
+          </tbody>
+        </table>
+        <h3>Mission loop</h3>
+        <ol>
+          <li>Place waypoints (rover pose = start).</li>
+          <li>Enable sensors and pick an algorithm.</li>
+          <li><strong>Start Mission</strong> — each frame: read sensors → compute <code>v</code>/<code>omega</code> → <code>applyMotion</code> → terrain tilt / physics.</li>
+          <li>A waypoint is passed when the rover is close enough (or footprint touches it with bumper/hit-test on).</li>
+          <li>Unreachable waypoints after go-around attempts are skipped (purple).</li>
+        </ol>
+        <h3>Data flow</h3>
+        <pre>SensorSuite.read()  →  fused reading
+computeNavCommand() →  { v, omega }
+applyMotion()       →  yaw + XZ pose (kinematic)
+applyRoverTerrain() →  height + pitch/roll from 4 wheels
+cannon-es           →  props / cones the rover can push</pre>
+        <p><strong>Error Report</strong> packages robot state, map snapshot, attempts, and the recent log so you can paste it into chat.</p>
+      </div>
+      <div data-lang="es">
+        <h3>Interfaz</h3>
+        <table>
+          <thead><tr><th>Panel</th><th>Rol</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Izquierda</strong></td><td>Sensores, algoritmo, Iniciar / Reset, Reporte de error, Mover objetos</td></tr>
+            <tr><td><strong>Centro</strong></td><td>Arena 3D. Click corto = waypoint. Órbita de cámara. El pad Custom JS se abre aquí.</td></tr>
+            <tr><td><strong>Derecha</strong></td><td>Arrastrar props, guardar/cargar mapas, dibujar terreno, peso/escala</td></tr>
+          </tbody>
+        </table>
+        <h3>Ciclo de misión</h3>
+        <ol>
+          <li>Coloca waypoints (la pose del rover es el inicio).</li>
+          <li>Activa sensores y elige algoritmo.</li>
+          <li><strong>Iniciar misión</strong> — cada frame: leer sensores → calcular <code>v</code>/<code>omega</code> → <code>applyMotion</code> → inclinación / física.</li>
+          <li>Un waypoint se pasa si el rover está cerca (o el footprint lo toca con hit-test on).</li>
+          <li>Si no se alcanza tras rodeos, se omite (morado).</li>
+        </ol>
+        <h3>Flujo de datos</h3>
+        <pre>SensorSuite.read()  →  lectura fusionada
+computeNavCommand() →  { v, omega }
+applyMotion()       →  yaw + pose XZ (cinemático)
+applyRoverTerrain() →  altura + pitch/roll de 4 ruedas
+cannon-es           →  props / conos que el rover empuja</pre>
+        <p><strong>Reporte de error</strong> junta estado del robot, mapa, intentos y el log reciente para pegarlo en el chat.</p>
+      </div>
+    </section>
+
+    <!-- Sensors -->
+    <section id="sensors">
+      <h2 data-lang="en">4. Sensors</h2>
+      <h2 data-lang="es">4. Sensores</h2>
+      <div data-lang="en">
+        <p>Toggle sensors independently. Algorithms only use what is active.</p>
+        <table>
+          <thead><tr><th>Sensor</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><strong>LIDAR</strong></td><td>360° scan (~6 m), corridor clearance for planning</td></tr>
+            <tr><td><strong>Ultrasonic</strong></td><td>Front cone (~4 m)</td></tr>
+            <tr><td><strong>3× IR</strong></td><td>Short front contact (~0.6 m)</td></tr>
+            <tr><td><strong>Floor IR</strong></td><td>Depression edges. <em>Off</em> = drive into holes like a 4×4; <em>on</em> = avoid</td></tr>
+            <tr><td><strong>Spring bumper</strong></td><td>Contact hit-test; blocks overlap when on</td></tr>
+          </tbody>
+        </table>
+        <p>Terrain stamps (✏️): ↑ mountain / ↓ hole. Raised edges hit LIDAR/US/IR; holes are for Floor IR. The rover body tilts from the four wheel ground samples.</p>
+      </div>
+      <div data-lang="es">
+        <p>Activa sensores por separado. El algoritmo solo usa lo que esté encendido.</p>
+        <table>
+          <thead><tr><th>Sensor</th><th>Rol</th></tr></thead>
+          <tbody>
+            <tr><td><strong>LIDAR</strong></td><td>Escaneo 360° (~6 m), holgura de corredor para planear</td></tr>
+            <tr><td><strong>Ultrasónico</strong></td><td>Cono frontal (~4 m)</td></tr>
+            <tr><td><strong>3× IR</strong></td><td>Contacto corto frontal (~0.6 m)</td></tr>
+            <tr><td><strong>IR de piso</strong></td><td>Bordes de hoyos. <em>Off</em> = entra como 4×4; <em>on</em> = evita</td></tr>
+            <tr><td><strong>Parachoques</strong></td><td>Hit-test de contacto; bloquea solapes si está on</td></tr>
+          </tbody>
+        </table>
+        <p>Sellos de terreno (✏️): ↑ colina / ↓ hoyo. Bordes elevados entran a LIDAR/US/IR; los hoyos son para IR de piso. El chasis se inclina según las 4 ruedas.</p>
+      </div>
+    </section>
+
+    <!-- Custom -->
+    <section id="custom">
+      <h2 data-lang="en">5. Your own algorithms (Custom JS)</h2>
+      <h2 data-lang="es">5. Tus propios algoritmos (Custom JS)</h2>
+      <div data-lang="en">
+        <ol>
+          <li>Select <strong>Custom (JS)</strong> — the pad opens over the 3D view.</li>
+          <li><strong>Copy</strong> the read-only <code>void setup</code> API and paste it to an AI or notes.</li>
+          <li>Write a <code>loop()</code> that assigns <code>v</code> and <code>omega</code>.</li>
+          <li><strong>Check</strong> → <strong>Save</strong> (stored in <code>localStorage.customLoopJs</code>).</li>
+        </ol>
+        <h3>Variables you can read</h3>
+        <p><code>robotX</code>, <code>robotZ</code>, <code>heading</code>, <code>waypointX</code>, <code>waypointZ</code>, <code>waypointDist</code>, <code>headingErr</code>, <code>blocked</code>, <code>forwardClear</code>, <code>nearest</code>, <code>lidar</code>, <code>ultrasonic</code>, <code>ir</code>, <code>floorIr</code>, <code>MAX_SPEED</code>, <code>MAX_OMEGA</code>, plus whitelisted <code>Math</code> and <code>draw(x, z)</code>.</p>
+        <pre>v = MAX_SPEED * 0.60
+omega = headingErr * 2.00
+draw(robotX, robotZ)</pre>
+        <p>Forbidden: DOM, <code>fetch</code>, <code>eval</code>, <code>new</code>, objects, <code>function</code>/<code>return</code>. Only robot vars, math, and <code>draw</code>.</p>
+        <h3>Want a new built-in algorithm?</h3>
+        <p>Add a mode in <code>nav.js</code> (command function + registration), then a radio/button in <code>index.html</code> and i18n strings in <code>main.js</code>. Keep the portable layout — avoid splitting into many micro-modules unless you need to.</p>
+        <h3>Want a new sensor?</h3>
+        <p>Extend <code>sensorConfig</code> + UI checkbox in <code>main.js</code>/<code>index.html</code>, implement the reading in <code>SensorSuite</code> (<code>nav.js</code>), and expose the value to Custom via the Custom setup text / loop wrapper in <code>main.js</code>.</p>
+      </div>
+      <div data-lang="es">
+        <ol>
+          <li>Elige <strong>Custom (JS)</strong> — se abre el pad sobre la vista 3D.</li>
+          <li><strong>Copia</strong> el API de <code>void setup</code> (solo lectura) y pégalo a una IA o a tus notas.</li>
+          <li>Escribe un <code>loop()</code> que asigne <code>v</code> y <code>omega</code>.</li>
+          <li><strong>Checar</strong> → <strong>Guardar</strong> (queda en <code>localStorage.customLoopJs</code>).</li>
+        </ol>
+        <h3>Variables de lectura</h3>
+        <p><code>robotX</code>, <code>robotZ</code>, <code>heading</code>, <code>waypointX</code>, <code>waypointZ</code>, <code>waypointDist</code>, <code>headingErr</code>, <code>blocked</code>, <code>forwardClear</code>, <code>nearest</code>, <code>lidar</code>, <code>ultrasonic</code>, <code>ir</code>, <code>floorIr</code>, <code>MAX_SPEED</code>, <code>MAX_OMEGA</code>, más <code>Math</code> permitido y <code>draw(x, z)</code>.</p>
+        <pre>v = MAX_SPEED * 0.60
+omega = headingErr * 2.00
+draw(robotX, robotZ)</pre>
+        <p>Prohibido: DOM, <code>fetch</code>, <code>eval</code>, <code>new</code>, objetos, <code>function</code>/<code>return</code>. Solo vars del robot, matemáticas y <code>draw</code>.</p>
+        <h3>¿Quieres un algoritmo built-in nuevo?</h3>
+        <p>Agrégalo en <code>nav.js</code> (función + registro), botón en <code>index.html</code> e i18n en <code>main.js</code>. Mantén el diseño portable — no lo partas en muchos micromódulos si no hace falta.</p>
+        <h3>¿Quieres un sensor nuevo?</h3>
+        <p>Extiende <code>sensorConfig</code> + checkbox en <code>main.js</code>/<code>index.html</code>, implementa la lectura en <code>SensorSuite</code> (<code>nav.js</code>) y expón el valor al Custom en el texto de setup / wrapper del loop en <code>main.js</code>.</p>
+      </div>
+    </section>
+
+    <!-- Edit project -->
+    <section id="edit">
+      <h2 data-lang="en">6. Edit the project</h2>
+      <h2 data-lang="es">6. Editar el proyecto</h2>
+      <div data-lang="en">
+        <table>
+          <thead><tr><th>File</th><th>Edit this for…</th></tr></thead>
+          <tbody>
+            <tr><td><code>index.html</code></td><td>UI panels, buttons, dialogs, Custom pad markup</td></tr>
+            <tr><td><code>style.css</code></td><td>Layout, colors, dialogs</td></tr>
+            <tr><td><code>main.js</code></td><td>Scene, rover, terrain, maps, mission, Custom checker, Error Report, i18n</td></tr>
+            <tr><td><code>nav.js</code></td><td>Sensors, safety, Bug2 / Pure Pursuit / VFH / Custom default</td></tr>
+            <tr><td><code>scripts/smoke_sim.mjs</code></td><td>Quick regression check of algo ids</td></tr>
+            <tr><td><code>docs/</code></td><td>Markdown deep-dives + README screenshot</td></tr>
+            <tr><td><code>wiki/</code></td><td>This HTML wiki (EN/ES)</td></tr>
+            <tr><td><code>notes/</code></td><td>Extra API notes for the public wiki mirror</td></tr>
+          </tbody>
+        </table>
+        <p>Design rule: keep the sim <strong>portable</strong> — few files, <code>npm run dev</code> and go.</p>
+      </div>
+      <div data-lang="es">
+        <table>
+          <thead><tr><th>Archivo</th><th>Edítalo para…</th></tr></thead>
+          <tbody>
+            <tr><td><code>index.html</code></td><td>Paneles UI, botones, diálogos, markup del pad Custom</td></tr>
+            <tr><td><code>style.css</code></td><td>Layout, colores, diálogos</td></tr>
+            <tr><td><code>main.js</code></td><td>Escena, rover, terreno, mapas, misión, checker Custom, Error Report, i18n</td></tr>
+            <tr><td><code>nav.js</code></td><td>Sensores, seguridad, Bug2 / Pure Pursuit / VFH / default Custom</td></tr>
+            <tr><td><code>scripts/smoke_sim.mjs</code></td><td>Chequeo rápido de ids de algoritmos</td></tr>
+            <tr><td><code>docs/</code></td><td>Guías Markdown + captura del README</td></tr>
+            <tr><td><code>wiki/</code></td><td>Esta wiki HTML (EN/ES)</td></tr>
+            <tr><td><code>notes/</code></td><td>Notas API extra</td></tr>
+          </tbody>
+        </table>
+        <p>Regla de diseño: el sim debe ser <strong>portable</strong> — pocos archivos, <code>npm run dev</code> y listo.</p>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq" class="faq">
+      <h2 data-lang="en">7. FAQ</h2>
+      <h2 data-lang="es">7. Preguntas frecuentes</h2>
+
+      <details>
+        <summary data-lang="en">Why doesn’t the rover avoid the hole?</summary>
+        <summary data-lang="es">¿Por qué el rover no evita el hoyo?</summary>
+        <p data-lang="en"><strong>Floor IR</strong> defaults off so it can drive into depressions like a 4×4. Turn Floor IR on to treat hole edges as obstacles.</p>
+        <p data-lang="es"><strong>IR de piso</strong> viene apagado para que entre a depresiones como un 4×4. Actívalo para tratar los bordes del hoyo como obstáculos.</p>
+      </details>
+      <details>
+        <summary data-lang="en">Does the rover tilt on uneven terrain?</summary>
+        <summary data-lang="es">¿El rover se inclina en terreno irregular?</summary>
+        <p data-lang="en">Yes. Height is sampled under each of the four wheels; pitch/roll follow the averages (with suspension travel on the wheel meshes).</p>
+        <p data-lang="es">Sí. Se toma altura bajo cada una de las cuatro ruedas; pitch/roll siguen los promedios (con recorrido de suspensión visual).</p>
+      </details>
+      <details>
+        <summary data-lang="en">Where did the side Log go?</summary>
+        <summary data-lang="es">¿Dónde quedó el Log del costado?</summary>
+        <p data-lang="en">It lives inside <strong>Error Report</strong> (state + recent log + JSON/CSV export). Cleaner right panel.</p>
+        <p data-lang="es">Está dentro de <strong>Reporte de error</strong> (estado + log reciente + export JSON/CSV). Panel derecho más limpio.</p>
+      </details>
+      <details>
+        <summary data-lang="en">How do I save / load a map?</summary>
+        <summary data-lang="es">¿Cómo guardo / cargo un mapa?</summary>
+        <p data-lang="en"><strong>Save map</strong> stores a dated entry in the browser. <strong>Load map</strong> opens a picker with timestamps and counts (waypoints / props / terrain).</p>
+        <p data-lang="es"><strong>Guardar mapa</strong> guarda una entrada con fecha. <strong>Cargar mapa</strong> abre un selector con timestamps y conteos (waypoints / props / terreno).</p>
+      </details>
+      <details>
+        <summary data-lang="en">Is this a full dynamics simulator?</summary>
+        <summary data-lang="es">¿Es un simulador de dinámica completo?</summary>
+        <p data-lang="en">No. The rover is kinematic (<code>applyMotion</code>). <code>cannon-es</code> drives props/cones. Great for path/sensor ideas — not validated vehicle dynamics.</p>
+        <p data-lang="es">No. El rover es cinemático (<code>applyMotion</code>). <code>cannon-es</code> mueve props/conos. Ideal para ideas de ruta/sensores — no es dinámica vehicular validada.</p>
+      </details>
+      <details>
+        <summary data-lang="en">Can I use Python algorithms?</summary>
+        <summary data-lang="es">¿Puedo usar algoritmos en Python?</summary>
+        <p data-lang="en">Not in-browser today. Use <strong>Custom JS</strong>, or fork and bridge an external process. Python support is on the roadmap idea list.</p>
+        <p data-lang="es">Hoy no en el navegador. Usa <strong>Custom JS</strong>, o haz fork y conecta un proceso externo. Python está en la lista de ideas.</p>
+      </details>
+      <details>
+        <summary data-lang="en">License?</summary>
+        <summary data-lang="es">¿Licencia?</summary>
+        <p data-lang="en">CC BY-NC-SA 4.0 — see <code>LICENSE</code>.</p>
+        <p data-lang="es">CC BY-NC-SA 4.0 — ver <code>LICENSE</code>.</p>
+      </details>
+    </section>
+
+    <div class="footer">
+      <p data-lang="en">Also see <a href="../docs/HOW_IT_WORKS.md">docs/HOW_IT_WORKS.md</a>, <a href="../docs/CUSTOM_JS.md">docs/CUSTOM_JS.md</a>, and <a href="../README.md">README</a>.</p>
+      <p data-lang="es">También: <a href="../docs/HOW_IT_WORKS.md">docs/HOW_IT_WORKS.md</a>, <a href="../docs/CUSTOM_JS.md">docs/CUSTOM_JS.md</a> y <a href="../README.md">README</a>.</p>
+      <p>Made with 🥑 by <a href="https://github.com/aoxilus">aoxilus</a></p>
+    </div>
+  </div>
+
+  <script>
+    const root = document.documentElement;
+    const btnEn = document.getElementById('btnEn');
+    const btnEs = document.getElementById('btnEs');
+    function setLang(lang) {
+      root.lang = lang;
+      btnEn.classList.toggle('active', lang === 'en');
+      btnEs.classList.toggle('active', lang === 'es');
+      try { localStorage.setItem('rpp-wiki-lang', lang); } catch (_) {}
+    }
+    btnEn.addEventListener('click', () => setLang('en'));
+    btnEs.addEventListener('click', () => setLang('es'));
+    let start = 'en';
+    try {
+      const saved = localStorage.getItem('rpp-wiki-lang');
+      if (saved === 'es' || saved === 'en') start = saved;
+      else if ((navigator.language || '').toLowerCase().startsWith('es')) start = 'es';
+    } catch (_) {}
+    setLang(start);
+  </script>
+</body>
+</html>
